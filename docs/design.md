@@ -351,3 +351,4 @@ Claude Code 的具体调用方式（`-p` 模式 / SDK / 其他）待后续确定
 
 18. iOS companion app（独立 UI 设计，复用 Domain + Infrastructure Layer）
 19. 功能：只读看板 + 审批
+// Dark mode config
