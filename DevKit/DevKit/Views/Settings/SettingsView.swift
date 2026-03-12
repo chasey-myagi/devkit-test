@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var ghAuthStatus = "Checking..."
     @State private var showAddSheet = false
     @State private var addError: String?
+    @State private var workspaceToDelete: Workspace?
     private let ghClient = GitHubCLIClient()
 
     var body: some View {
@@ -46,13 +47,8 @@ struct SettingsView: View {
                     }
                 }
                 .onDelete { indexSet in
-                    let manager = WorkspaceManager(modelContainer: modelContext.container)
-                    for i in indexSet {
-                        do {
-                            try manager.delete(name: workspaces[i].name)
-                        } catch {
-                            addError = error.localizedDescription
-                        }
+                    if let i = indexSet.first {
+                        workspaceToDelete = workspaces[i]
                     }
                 }
             }
@@ -64,28 +60,59 @@ struct SettingsView: View {
             .sheet(isPresented: $showAddSheet) {
                 addWorkspaceSheet
             }
+            .alert("Delete Workspace?", isPresented: Binding(
+                get: { workspaceToDelete != nil },
+                set: { if !$0 { workspaceToDelete = nil } }
+            )) {
+                Button("Cancel", role: .cancel) { workspaceToDelete = nil }
+                Button("Delete", role: .destructive) {
+                    guard let ws = workspaceToDelete else { return }
+                    let manager = WorkspaceManager(modelContainer: modelContext.container)
+                    do {
+                        try manager.delete(name: ws.name)
+                    } catch {
+                        addError = error.localizedDescription
+                    }
+                    workspaceToDelete = nil
+                }
+            } message: {
+                Text("This will remove \"\(workspaceToDelete?.name ?? "")\" and all cached data. This cannot be undone.")
+            }
         }
         .padding(DKSpacing.lg)
     }
 
     private var addWorkspaceSheet: some View {
-        VStack(spacing: DKSpacing.md) {
+        VStack(alignment: .leading, spacing: DKSpacing.lg) {
             Text("Add Workspace")
                 .font(DKTypography.pageTitle())
                 .foregroundStyle(DKColor.Foreground.primary)
-            TextField("Name", text: $newWorkspaceName)
-            TextField("Repo (owner/name)", text: $newRepoFullName)
-            HStack {
-                TextField("Local Path", text: $newLocalPath)
-                Button("Browse...") {
-                    let panel = NSOpenPanel()
-                    panel.canChooseDirectories = true
-                    panel.canChooseFiles = false
-                    if panel.runModal() == .OK, let url = panel.url {
-                        newLocalPath = url.path
+
+            settingsField("Name", text: $newWorkspaceName, prompt: "my-project")
+            settingsField("Repo", text: $newRepoFullName, prompt: "owner/repo-name")
+
+            VStack(alignment: .leading, spacing: DKSpacing.xs) {
+                Text("Local Path")
+                    .font(DKTypography.caption())
+                    .foregroundStyle(DKColor.Foreground.secondary)
+                HStack(spacing: DKSpacing.sm) {
+                    TextField("/Users/you/projects/repo", text: $newLocalPath)
+                        .textFieldStyle(.plain)
+                        .font(DKTypography.body())
+                        .padding(.horizontal, DKSpacing.md)
+                        .frame(height: 36)
+                        .background(DKColor.Surface.tertiary.opacity(0.6))
+                        .clipShape(RoundedRectangle(cornerRadius: DKRadius.sm))
+                    Button("Browse") {
+                        let panel = NSOpenPanel()
+                        panel.canChooseDirectories = true
+                        panel.canChooseFiles = false
+                        if panel.runModal() == .OK, let url = panel.url {
+                            newLocalPath = url.path
+                        }
                     }
+                    .buttonStyle(DKSecondaryButtonStyle())
                 }
-                .buttonStyle(DKSecondaryButtonStyle())
             }
 
             if let addError {
@@ -123,7 +150,22 @@ struct SettingsView: View {
             }
         }
         .padding(DKSpacing.xl)
-        .frame(width: 400)
+        .frame(width: 420)
+    }
+
+    private func settingsField(_ label: String, text: Binding<String>, prompt: String) -> some View {
+        VStack(alignment: .leading, spacing: DKSpacing.xs) {
+            Text(label)
+                .font(DKTypography.caption())
+                .foregroundStyle(DKColor.Foreground.secondary)
+            TextField(prompt, text: text)
+                .textFieldStyle(.plain)
+                .font(DKTypography.body())
+                .padding(.horizontal, DKSpacing.md)
+                .frame(height: 36)
+                .background(DKColor.Surface.tertiary.opacity(0.6))
+                .clipShape(RoundedRectangle(cornerRadius: DKRadius.sm))
+        }
     }
 
     // MARK: - GitHub Settings

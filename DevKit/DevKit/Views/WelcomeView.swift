@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct WelcomeView: View {
-    var onAddWorkspace: (String, String, String) -> Void
+    var onAddWorkspace: (String, String, String) throws -> Void
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -11,6 +11,15 @@ struct WelcomeView: View {
     @State private var repo = ""
     @State private var localPath = ""
     @State private var addError: String?
+    @FocusState private var focusedField: FormField?
+
+    private enum FormField: Hashable {
+        case name, repo, path
+    }
+
+    private var formIsValid: Bool {
+        !name.isEmpty && !repo.isEmpty && !localPath.isEmpty
+    }
 
     var body: some View {
         ZStack {
@@ -43,7 +52,6 @@ struct WelcomeView: View {
                 .multilineTextAlignment(.center)
 
                 if showForm {
-                    // Inline workspace creation form
                     addWorkspaceForm
                         .transition(.opacity.combined(with: .offset(y: 12)))
                 } else {
@@ -81,27 +89,65 @@ struct WelcomeView: View {
     // MARK: - Inline Add Workspace Form
 
     private var addWorkspaceForm: some View {
-        VStack(spacing: DKSpacing.md) {
-            VStack(alignment: .leading, spacing: DKSpacing.sm) {
+        VStack(spacing: DKSpacing.lg) {
+            VStack(alignment: .leading, spacing: DKSpacing.lg) {
                 Text("ADD YOUR FIRST WORKSPACE")
                     .font(DKTypography.captionSmall())
                     .tracking(1.0)
                     .foregroundStyle(DKColor.Foreground.tertiary)
 
-                formField("Workspace Name", text: $name, prompt: "my-project")
-                formField("GitHub Repo", text: $repo, prompt: "owner/repo-name")
+                formField("Workspace Name", text: $name, prompt: "my-project", field: .name)
+                    .onSubmit { focusedField = .repo }
+                formField("GitHub Repo", text: $repo, prompt: "owner/repo-name", field: .repo)
+                    .onSubmit { focusedField = .path }
 
-                HStack(spacing: DKSpacing.sm) {
-                    formField("Local Path", text: $localPath, prompt: "/Users/you/projects/repo")
-                    Button("Browse...") {
-                        let panel = NSOpenPanel()
-                        panel.canChooseDirectories = true
-                        panel.canChooseFiles = false
-                        if panel.runModal() == .OK, let url = panel.url {
-                            localPath = url.path
+                // Local path with Browse button
+                VStack(alignment: .leading, spacing: DKSpacing.xs) {
+                    Text("Local Path")
+                        .font(DKTypography.caption())
+                        .foregroundStyle(DKColor.Foreground.secondary)
+                    HStack(spacing: DKSpacing.sm) {
+                        TextField("/Users/you/projects/repo", text: $localPath)
+                            .textFieldStyle(.plain)
+                            .font(DKTypography.body())
+                            .focused($focusedField, equals: .path)
+                            .padding(.horizontal, DKSpacing.md)
+                            .frame(height: 36)
+                            .background(
+                                RoundedRectangle(cornerRadius: DKRadius.sm)
+                                    .fill(colorScheme == .dark ? DKColor.Surface.tertiary.opacity(0.5) : .white.opacity(0.7))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DKRadius.sm)
+                                    .strokeBorder(
+                                        focusedField == .path ? DKColor.Accent.brand : DKColor.Foreground.tertiary.opacity(0.2),
+                                        lineWidth: focusedField == .path ? 1.5 : 0.5
+                                    )
+                            )
+                        Button {
+                            let panel = NSOpenPanel()
+                            panel.canChooseDirectories = true
+                            panel.canChooseFiles = false
+                            if panel.runModal() == .OK, let url = panel.url {
+                                localPath = url.path
+                            }
+                        } label: {
+                            Text("Browse")
+                                .font(DKTypography.bodyMedium())
+                                .foregroundStyle(DKColor.Foreground.primary)
+                                .frame(height: 36)
+                                .padding(.horizontal, DKSpacing.md)
+                                .background(
+                                    RoundedRectangle(cornerRadius: DKRadius.sm)
+                                        .fill(colorScheme == .dark ? DKColor.Surface.tertiary : DKColor.Surface.secondary)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: DKRadius.sm)
+                                        .strokeBorder(DKColor.Foreground.tertiary.opacity(0.2), lineWidth: 0.5)
+                                )
                         }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(DKSecondaryButtonStyle())
                 }
             }
 
@@ -119,39 +165,76 @@ struct WelcomeView: View {
                     }
                 } label: {
                     Text("Back")
+                        .font(DKTypography.bodyMedium())
+                        .foregroundStyle(DKColor.Foreground.secondary)
+                        .frame(height: 36)
+                        .padding(.horizontal, DKSpacing.xl)
                 }
-                .buttonStyle(DKGhostButtonStyle())
+                .buttonStyle(.plain)
 
                 Button {
-                    guard !name.isEmpty, !repo.isEmpty, !localPath.isEmpty else {
+                    guard formIsValid else {
                         addError = "All fields are required."
                         return
                     }
-                    onAddWorkspace(name, repo, localPath)
+                    guard repo.contains("/") else {
+                        addError = "Repo must be in owner/repo format."
+                        return
+                    }
+                    guard FileManager.default.fileExists(atPath: localPath) else {
+                        addError = "Path does not exist."
+                        return
+                    }
+                    do {
+                        try onAddWorkspace(name, repo, localPath)
+                    } catch {
+                        addError = error.localizedDescription
+                    }
                 } label: {
                     Label("Create Workspace", systemImage: "checkmark")
                 }
                 .buttonStyle(DKPrimaryButtonStyle())
-                .disabled(name.isEmpty || repo.isEmpty || localPath.isEmpty)
+                .disabled(!formIsValid)
             }
+            .padding(.top, DKSpacing.xs)
         }
         .padding(DKSpacing.xl)
-        .frame(maxWidth: 440)
-        .background(DKColor.Surface.card.opacity(0.85))
-        .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
+        .frame(maxWidth: 460)
+        .background(
+            RoundedRectangle(cornerRadius: DKRadius.xl)
+                .fill(colorScheme == .dark ? DKColor.Surface.card.opacity(0.9) : .white.opacity(0.85))
+                .shadow(color: .black.opacity(0.06), radius: 20, y: 8)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DKRadius.xl)
+                .strokeBorder(DKColor.Foreground.tertiary.opacity(0.08), lineWidth: 0.5)
+        )
+        .onAppear { focusedField = .name }
     }
 
-    private func formField(_ label: String, text: Binding<String>, prompt: String) -> some View {
-        VStack(alignment: .leading, spacing: DKSpacing.xxs) {
+    private func formField(_ label: String, text: Binding<String>, prompt: String, field: FormField) -> some View {
+        VStack(alignment: .leading, spacing: DKSpacing.xs) {
             Text(label)
                 .font(DKTypography.caption())
                 .foregroundStyle(DKColor.Foreground.secondary)
             TextField(prompt, text: text)
                 .textFieldStyle(.plain)
                 .font(DKTypography.body())
-                .padding(DKSpacing.sm)
-                .background(DKColor.Surface.tertiary.opacity(0.6))
-                .clipShape(RoundedRectangle(cornerRadius: DKRadius.sm))
+                .focused($focusedField, equals: field)
+                .padding(.horizontal, DKSpacing.md)
+                .frame(height: 36)
+                .background(
+                    RoundedRectangle(cornerRadius: DKRadius.sm)
+                        .fill(colorScheme == .dark ? DKColor.Surface.tertiary.opacity(0.5) : .white.opacity(0.7))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: DKRadius.sm)
+                        .strokeBorder(
+                            focusedField == field ? DKColor.Accent.brand : DKColor.Foreground.tertiary.opacity(0.2),
+                            lineWidth: focusedField == field ? 1.5 : 0.5
+                        )
+                )
+                .animation(DKMotion.Ease.hover, value: focusedField)
         }
     }
 
@@ -188,26 +271,26 @@ struct WelcomeView: View {
     private var meshGradient: some View {
         let colors: [Color] = colorScheme == .dark
             ? [
-                Color(red: 0.18, green: 0.16, blue: 0.22),
-                Color(red: 0.16, green: 0.15, blue: 0.18),
-                Color(red: 0.22, green: 0.17, blue: 0.16),
-                Color(red: 0.14, green: 0.14, blue: 0.18),
+                Color(red: 0.12, green: 0.10, blue: 0.20),
+                Color(red: 0.13, green: 0.12, blue: 0.17),
+                Color(red: 0.15, green: 0.13, blue: 0.21),
+                Color(red: 0.11, green: 0.11, blue: 0.18),
                 DKColor.Surface.primary,
-                Color(red: 0.18, green: 0.16, blue: 0.14),
-                Color(red: 0.17, green: 0.14, blue: 0.23),
-                Color(red: 0.15, green: 0.14, blue: 0.15),
-                Color(red: 0.20, green: 0.18, blue: 0.14),
+                Color(red: 0.14, green: 0.13, blue: 0.18),
+                Color(red: 0.10, green: 0.09, blue: 0.19),
+                Color(red: 0.13, green: 0.12, blue: 0.16),
+                Color(red: 0.15, green: 0.14, blue: 0.20),
             ]
             : [
-                Color(red: 0.93, green: 0.89, blue: 0.97),
-                Color(red: 0.96, green: 0.94, blue: 0.95),
-                Color(red: 0.99, green: 0.91, blue: 0.87),
-                Color(red: 0.94, green: 0.92, blue: 0.97),
+                Color(red: 0.93, green: 0.91, blue: 0.98),
+                Color(red: 0.96, green: 0.95, blue: 0.97),
+                Color(red: 0.97, green: 0.96, blue: 0.94),
+                Color(red: 0.92, green: 0.91, blue: 0.98),
                 DKColor.Surface.primary,
-                Color(red: 0.98, green: 0.93, blue: 0.88),
-                Color(red: 0.91, green: 0.82, blue: 0.99),
-                Color(red: 0.96, green: 0.93, blue: 0.92),
-                Color(red: 0.99, green: 0.96, blue: 0.85),
+                Color(red: 0.96, green: 0.95, blue: 0.97),
+                Color(red: 0.90, green: 0.88, blue: 0.98),
+                Color(red: 0.96, green: 0.95, blue: 0.96),
+                Color(red: 0.97, green: 0.96, blue: 0.95),
             ]
         MeshGradient(
             width: 3, height: 3,

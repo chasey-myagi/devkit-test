@@ -27,24 +27,17 @@ struct FeatureGridCardView: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(DKColor.Foreground.secondary)
                     .frame(width: 36, height: 36)
-                    .background(.white.opacity(0.5))
+                    .background(DKColor.Surface.primary.opacity(0.6))
                     .clipShape(Circle())
             }
         }
         .padding(DKSpacing.lg)
         .frame(minHeight: 180)
         .background(backgroundColor)
-        .overlay(
-            LinearGradient(
-                colors: [.clear, .black.opacity(0.12)],
-                startPoint: .init(x: 0.5, y: 0.6),
-                endPoint: .bottom
-            )
-        )
         .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
         .overlay(
             RoundedRectangle(cornerRadius: DKRadius.xl)
-                .stroke(DKColor.Surface.secondary.opacity(0.5), lineWidth: 1)
+                .strokeBorder(DKColor.Foreground.tertiary.opacity(0.08), lineWidth: 0.5)
         )
         .scaleEffect(isHovered && !reduceMotion ? 1.01 : 1.0)
         .animation(reduceMotion ? nil : DKMotion.Ease.hover, value: isHovered)

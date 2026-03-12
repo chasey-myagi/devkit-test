@@ -10,9 +10,28 @@ struct IssueColumnView: View {
 
     @State private var isDropTargeted = false
 
+    private var columnIcon: String {
+        switch status {
+        case "To Do": return "circle"
+        case "In Progress": return "circle.dotted.circle"
+        default: return "checkmark.circle.fill"
+        }
+    }
+
+    private var columnColor: Color {
+        switch status {
+        case "To Do": return DKColor.Foreground.tertiary
+        case "In Progress": return DKColor.Accent.brand
+        default: return DKColor.Accent.positive
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
+            HStack(spacing: DKSpacing.sm) {
+                Image(systemName: columnIcon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(columnColor)
                 Text(title)
                     .font(DKTypography.bodyMedium())
                     .foregroundStyle(DKColor.Foreground.primary)
@@ -32,16 +51,29 @@ struct IssueColumnView: View {
             Divider()
 
             ScrollView {
-                LazyVStack(spacing: DKSpacing.sm) {
-                    ForEach(issues) { issue in
-                        NavigationLink(value: issue) {
-                            IssueCardView(issue: issue)
-                        }
-                        .buttonStyle(DKCardPressStyle())
-                        .draggable(String(issue.number))
+                if issues.isEmpty {
+                    VStack(spacing: DKSpacing.sm) {
+                        Image(systemName: "tray")
+                            .font(.system(size: 24, weight: .light))
+                            .foregroundStyle(DKColor.Foreground.tertiary)
+                        Text("No items")
+                            .font(DKTypography.caption())
+                            .foregroundStyle(DKColor.Foreground.tertiary)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, DKSpacing.xxxl)
+                } else {
+                    LazyVStack(spacing: DKSpacing.sm) {
+                        ForEach(issues) { issue in
+                            NavigationLink(value: issue) {
+                                IssueCardView(issue: issue)
+                            }
+                            .buttonStyle(DKCardPressStyle())
+                            .draggable(String(issue.number))
+                        }
+                    }
+                    .padding(DKSpacing.sm)
                 }
-                .padding(DKSpacing.sm)
             }
         }
         .background(isDropTargeted ? DKColor.Surface.tertiary : DKColor.Surface.secondary)

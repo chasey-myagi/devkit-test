@@ -26,7 +26,7 @@ struct DKPrimaryButtonStyle: ButtonStyle {
                     .fill(.white.opacity(isHovered ? 0.08 : 0))
             )
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .opacity(isEnabled ? 1.0 : 0.4)
+            .opacity(isEnabled ? 1.0 : 0.55)
             .animation(DKMotion.Spring.stiff, value: configuration.isPressed)
             .onHover { isHovered = $0 }
     }
@@ -45,7 +45,7 @@ struct DKSecondaryButtonStyle: ButtonStyle {
             .background(isHovered ? DKColor.Surface.elevated : DKColor.Surface.tertiary)
             .clipShape(RoundedRectangle(cornerRadius: DKRadius.md))
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .opacity(isEnabled ? 1.0 : 0.4)
+            .opacity(isEnabled ? 1.0 : 0.55)
             .animation(DKMotion.Spring.stiff, value: configuration.isPressed)
             .onHover { isHovered = $0 }
     }
@@ -64,7 +64,7 @@ struct DKGhostButtonStyle: ButtonStyle {
             .background(isHovered ? DKColor.Surface.secondary : .clear)
             .clipShape(RoundedRectangle(cornerRadius: DKRadius.md))
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .opacity(isEnabled ? 1.0 : 0.4)
+            .opacity(isEnabled ? 1.0 : 0.55)
             .animation(DKMotion.Spring.stiff, value: configuration.isPressed)
             .onHover { isHovered = $0 }
     }
@@ -83,7 +83,7 @@ struct DKIconCircleButtonStyle: ButtonStyle {
             .background(isHovered ? DKColor.Surface.tertiary : DKColor.Surface.secondary)
             .clipShape(Circle())
             .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
-            .opacity(isEnabled ? 1.0 : 0.4)
+            .opacity(isEnabled ? 1.0 : 0.55)
             .animation(DKMotion.Spring.stiff, value: configuration.isPressed)
             .onHover { isHovered = $0 }
     }

@@ -5,10 +5,31 @@ struct PRColumnView: View {
     let prs: [CachedPR]
     let repoFullName: String
 
+    private var columnIcon: String {
+        switch title {
+        case "Draft": return "pencil.circle"
+        case "In Review": return "eye.circle"
+        case "Need Fix": return "exclamationmark.circle"
+        default: return "checkmark.circle.fill"
+        }
+    }
+
+    private var columnColor: Color {
+        switch title {
+        case "Draft": return DKColor.Foreground.tertiary
+        case "In Review": return DKColor.Accent.brand
+        case "Need Fix": return DKColor.Accent.warning
+        default: return DKColor.Accent.positive
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Column header
-            HStack {
+            HStack(spacing: DKSpacing.sm) {
+                Image(systemName: columnIcon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(columnColor)
                 Text(title)
                     .font(DKTypography.bodyMedium())
                     .foregroundStyle(DKColor.Foreground.primary)
@@ -29,15 +50,28 @@ struct PRColumnView: View {
 
             // Cards
             ScrollView {
-                LazyVStack(spacing: DKSpacing.sm) {
-                    ForEach(prs) { pr in
-                        NavigationLink(value: pr) {
-                            PRCardView(pr: pr)
-                        }
-                        .buttonStyle(DKCardPressStyle())
+                if prs.isEmpty {
+                    VStack(spacing: DKSpacing.sm) {
+                        Image(systemName: "tray")
+                            .font(.system(size: 24, weight: .light))
+                            .foregroundStyle(DKColor.Foreground.tertiary)
+                        Text("No items")
+                            .font(DKTypography.caption())
+                            .foregroundStyle(DKColor.Foreground.tertiary)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, DKSpacing.xxxl)
+                } else {
+                    LazyVStack(spacing: DKSpacing.sm) {
+                        ForEach(prs) { pr in
+                            NavigationLink(value: pr) {
+                                PRCardView(pr: pr)
+                            }
+                            .buttonStyle(DKCardPressStyle())
+                        }
+                    }
+                    .padding(DKSpacing.sm)
                 }
-                .padding(DKSpacing.sm)
             }
         }
         .background(DKColor.Surface.secondary)

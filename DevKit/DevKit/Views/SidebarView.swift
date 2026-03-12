@@ -18,6 +18,7 @@ struct SidebarView: View {
         case overview = "Overview"
         case issues = "Issues"
         case prs = "PRs"
+        case actions = "Actions"
         case agents = "Agents"
 
         var id: String { rawValue }
@@ -26,7 +27,17 @@ struct SidebarView: View {
             case .overview: return "square.grid.2x2"
             case .issues: return "exclamationmark.circle"
             case .prs: return "arrow.triangle.pull"
+            case .actions: return "gearshape.2"
             case .agents: return "terminal"
+            }
+        }
+        var shortcutKey: KeyEquivalent {
+            switch self {
+            case .overview: return "1"
+            case .issues: return "2"
+            case .prs: return "3"
+            case .actions: return "4"
+            case .agents: return "5"
             }
         }
     }
@@ -170,6 +181,7 @@ struct SidebarView: View {
             )
         }
         .buttonStyle(.plain)
+        .keyboardShortcut(tab.shortcutKey, modifiers: .command)
         .onHover { isHovered in
             hoveredTab = isHovered ? tab : nil
         }

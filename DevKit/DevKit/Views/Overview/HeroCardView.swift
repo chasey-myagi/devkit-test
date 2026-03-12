@@ -42,7 +42,7 @@ struct HeroCardView: View {
 
             // Bottom action bar
             HStack {
-                Text("Tap to view board")
+                Text("View Issue Board")
                     .font(DKTypography.bodyMedium())
                     .foregroundStyle(DKColor.Foreground.primary)
                 Spacer()
@@ -66,6 +66,8 @@ struct HeroCardView: View {
         .scaleEffect(isHovered && !reduceMotion ? 1.008 : 1.0)
         .animation(reduceMotion ? nil : DKMotion.Ease.hover, value: isHovered)
         .onHover { isHovered = $0 }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel("View issue board, \(openCount) open issues, \(attentionCount) need attention")
         .onTapGesture { onTapBoard() }
         .opacity(appeared || reduceMotion ? 1 : 0)
         .offset(y: appeared || reduceMotion ? 0 : 16)
@@ -78,26 +80,26 @@ struct HeroCardView: View {
     private var heroGradient: some View {
         let colors: [Color] = colorScheme == .dark
             ? [
-                Color(red: 0.18, green: 0.16, blue: 0.22),
-                Color(red: 0.20, green: 0.18, blue: 0.20),
-                Color(red: 0.22, green: 0.17, blue: 0.16),
-                Color(red: 0.17, green: 0.16, blue: 0.21),
+                Color(red: 0.14, green: 0.12, blue: 0.22),
+                Color(red: 0.16, green: 0.15, blue: 0.20),
+                Color(red: 0.18, green: 0.15, blue: 0.24),
+                Color(red: 0.13, green: 0.12, blue: 0.20),
                 DKColor.Surface.card,
-                Color(red: 0.21, green: 0.18, blue: 0.16),
-                Color(red: 0.17, green: 0.14, blue: 0.23),
-                Color(red: 0.19, green: 0.17, blue: 0.17),
-                Color(red: 0.22, green: 0.20, blue: 0.15),
+                Color(red: 0.16, green: 0.14, blue: 0.21),
+                Color(red: 0.12, green: 0.10, blue: 0.22),
+                Color(red: 0.15, green: 0.14, blue: 0.18),
+                Color(red: 0.17, green: 0.16, blue: 0.22),
             ]
             : [
-                Color(red: 0.91, green: 0.87, blue: 0.96),
-                Color(red: 0.94, green: 0.91, blue: 0.92),
-                Color(red: 0.99, green: 0.88, blue: 0.84),
-                Color(red: 0.89, green: 0.87, blue: 0.94),
+                Color(red: 0.92, green: 0.90, blue: 0.98),
+                Color(red: 0.95, green: 0.93, blue: 0.97),
+                Color(red: 0.96, green: 0.94, blue: 0.98),
+                Color(red: 0.91, green: 0.89, blue: 0.97),
                 DKColor.Surface.card,
-                Color(red: 0.97, green: 0.91, blue: 0.85),
-                Color(red: 0.88, green: 0.76, blue: 0.99),
-                Color(red: 0.93, green: 0.89, blue: 0.88),
-                Color(red: 0.99, green: 0.95, blue: 0.82),
+                Color(red: 0.95, green: 0.94, blue: 0.98),
+                Color(red: 0.89, green: 0.86, blue: 0.97),
+                Color(red: 0.94, green: 0.93, blue: 0.96),
+                Color(red: 0.96, green: 0.95, blue: 0.97),
             ]
         MeshGradient(
             width: 3, height: 3,

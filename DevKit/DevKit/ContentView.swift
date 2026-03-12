@@ -11,6 +11,7 @@ struct ContentView: View {
     @State private var boardViewModel: IssueBoardViewModel?
     @State private var prBoardViewModel: PRBoardViewModel?
     @State private var coordinator: AgentCoordinator?
+    @State private var actionsViewModel: ActionsViewModel?
 
     /// Resolved workspace object from name
     private var selectedWorkspace: Workspace? {
@@ -39,12 +40,14 @@ struct ContentView: View {
                         case .prs:
                             PRBoardView(workspace: ws, viewModel: prBoardViewModel)
                                 .task(id: ws.name) {
-                                    // I-6: PR 首次切换时自动加载
                                     await prBoardViewModel?.refresh(workspace: ws)
                                 }
                                 .transition(.opacity.combined(with: .offset(x: 20)))
                         case .agents:
                             AgentBoardView(workspace: ws, coordinator: coordinator)
+                                .transition(.opacity.combined(with: .offset(x: 20)))
+                        case .actions:
+                            ActionsListView(workspace: ws, viewModel: actionsViewModel)
                                 .transition(.opacity.combined(with: .offset(x: 20)))
                         }
                     }
@@ -55,12 +58,7 @@ struct ContentView: View {
                 } else {
                     WelcomeView { name, repo, path in
                         let manager = WorkspaceManager(modelContainer: modelContext.container)
-                        do {
-                            try manager.add(name: name, repoFullName: repo, localPath: path)
-                            // Auto-select is handled by onChange(of: workspaces.count)
-                        } catch {
-                            // Error handled inside WelcomeView form
-                        }
+                        try manager.add(name: name, repoFullName: repo, localPath: path)
                     }
                 }
             }
@@ -105,6 +103,7 @@ struct ContentView: View {
             boardViewModel = nil
             prBoardViewModel = nil
             coordinator = nil
+            actionsViewModel = nil
             return
         }
         let container = modelContext.container
@@ -117,6 +116,7 @@ struct ContentView: View {
         boardViewModel = newVM
         prBoardViewModel = newPRVM
         coordinator = newCoordinator
+        actionsViewModel = ActionsViewModel(ghClient: ghClient)
         startPolling(workspace: ws, interval: TimeInterval(ws.pollingIntervalSeconds))
     }
 
