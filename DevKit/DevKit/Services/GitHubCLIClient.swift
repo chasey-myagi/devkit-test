@@ -212,6 +212,49 @@ final class GitHubCLIClient: Sendable {
         ])
     }
 
+    // MARK: - Actions
+
+    /// 获取 workflow runs 列表
+    func fetchWorkflowRuns(repo: String, limit: Int = 30) async throws -> [GHWorkflowRun] {
+        let output = try await processRunner.run("gh", arguments: [
+            "run", "list",
+            "--repo", repo,
+            "--limit", String(limit),
+            "--json", "databaseId,displayTitle,name,headBranch,status,conclusion,event,createdAt,updatedAt,url"
+        ])
+        guard !output.isEmpty else { return [] }
+        return try JSONDecoder.ghDecoder.decode([GHWorkflowRun].self, from: Data(output.utf8))
+    }
+
+    /// 获取某次 run 的 jobs 列表
+    func fetchRunJobs(repo: String, runId: Int) async throws -> [GHWorkflowJob] {
+        let output = try await processRunner.run("gh", arguments: [
+            "run", "view", String(runId),
+            "--repo", repo,
+            "--json", "jobs",
+            "--jq", ".jobs"
+        ])
+        guard !output.isEmpty else { return [] }
+        return try JSONDecoder.ghDecoder.decode([GHWorkflowJob].self, from: Data(output.utf8))
+    }
+
+    /// 获取某个 job 的日志
+    func fetchJobLog(repo: String, jobId: Int) async throws -> String {
+        try await processRunner.run("gh", arguments: [
+            "run", "view", "--repo", repo,
+            "--job", String(jobId),
+            "--log"
+        ])
+    }
+
+    /// 重新运行 workflow（默认仅失败的 jobs）
+    @discardableResult
+    func rerunWorkflow(repo: String, runId: Int, failedOnly: Bool = true) async throws -> String {
+        var args = ["run", "rerun", String(runId), "--repo", repo]
+        if failedOnly { args.append("--failed") }
+        return try await processRunner.run("gh", arguments: args)
+    }
+
     // MARK: - Private
 
     private func splitRepo(_ repo: String) throws -> (owner: String, name: String) {

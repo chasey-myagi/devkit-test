@@ -104,4 +104,85 @@ struct GitHubCLIClientTests {
         try await client.updateProjectStatus(repo: "owner/repo", issueNumber: 123, newStatus: "In Progress")
         #expect(mock.recordedCommands.count >= 1)
     }
+
+    // MARK: - Actions
+
+    @Test func fetchWorkflowRunsDecoding() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: """
+        [{"databaseId":100,"displayTitle":"CI","name":"build","headBranch":"main","status":"completed","conclusion":"success","event":"push","createdAt":"2026-03-12T00:00:00Z","updatedAt":"2026-03-12T00:05:00Z","url":"https://github.com/o/r/actions/runs/100"}]
+        """)
+        let client = GitHubCLIClient(processRunner: mock)
+        let runs = try await client.fetchWorkflowRuns(repo: "o/r")
+        #expect(runs.count == 1)
+        #expect(runs[0].databaseId == 100)
+        #expect(runs[0].displayTitle == "CI")
+        #expect(runs[0].conclusion == "success")
+        #expect(runs[0].statusIcon == "checkmark.circle.fill")
+    }
+
+    @Test func fetchWorkflowRunsEmpty() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: "")
+        let client = GitHubCLIClient(processRunner: mock)
+        let runs = try await client.fetchWorkflowRuns(repo: "o/r")
+        #expect(runs.isEmpty)
+    }
+
+    @Test func fetchRunJobsDecoding() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: """
+        [{"id":200,"name":"build","status":"completed","conclusion":"success","startedAt":"2026-03-12T00:00:00Z","completedAt":"2026-03-12T00:02:00Z"}]
+        """)
+        let client = GitHubCLIClient(processRunner: mock)
+        let jobs = try await client.fetchRunJobs(repo: "o/r", runId: 100)
+        #expect(jobs.count == 1)
+        #expect(jobs[0].name == "build")
+        #expect(jobs[0].conclusion == "success")
+    }
+
+    @Test func fetchJobLogReturnsString() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: "Step 1: Checkout\nStep 2: Build\nStep 3: Test")
+        let client = GitHubCLIClient(processRunner: mock)
+        let log = try await client.fetchJobLog(repo: "o/r", jobId: 200)
+        #expect(log.contains("Step 1: Checkout"))
+        #expect(log.contains("Step 3: Test"))
+    }
+
+    @Test func rerunWorkflowSendsCorrectArgs() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: "")
+        let client = GitHubCLIClient(processRunner: mock)
+        try await client.rerunWorkflow(repo: "o/r", runId: 100)
+        let cmd = mock.recordedCommands.first
+        #expect(cmd?.arguments.contains("rerun") == true)
+        #expect(cmd?.arguments.contains("100") == true)
+        #expect(cmd?.arguments.contains("--failed") == true)
+    }
+
+    @Test func rerunWorkflowAllJobs() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: "")
+        let client = GitHubCLIClient(processRunner: mock)
+        try await client.rerunWorkflow(repo: "o/r", runId: 100, failedOnly: false)
+        let cmd = mock.recordedCommands.first
+        #expect(cmd?.arguments.contains("rerun") == true)
+        #expect(cmd?.arguments.contains("--failed") == false)
+    }
+
+    @Test func workflowRunStatusIcons() {
+        // 测试各状态的图标映射
+        let successRun = GHWorkflowRun(databaseId: 1, displayTitle: "CI", name: "build", headBranch: "main", status: "completed", conclusion: "success", event: "push", createdAt: "", updatedAt: "", url: "")
+        #expect(successRun.statusIcon == "checkmark.circle.fill")
+
+        let failedRun = GHWorkflowRun(databaseId: 2, displayTitle: "CI", name: "build", headBranch: "main", status: "completed", conclusion: "failure", event: "push", createdAt: "", updatedAt: "", url: "")
+        #expect(failedRun.statusIcon == "xmark.circle.fill")
+
+        let inProgressRun = GHWorkflowRun(databaseId: 3, displayTitle: "CI", name: "build", headBranch: "main", status: "in_progress", conclusion: nil, event: "push", createdAt: "", updatedAt: "", url: "")
+        #expect(inProgressRun.statusIcon == "circle.dotted.circle")
+
+        let queuedRun = GHWorkflowRun(databaseId: 4, displayTitle: "CI", name: "build", headBranch: "main", status: "queued", conclusion: nil, event: "push", createdAt: "", updatedAt: "", url: "")
+        #expect(queuedRun.statusIcon == "clock.circle")
+    }
 }
