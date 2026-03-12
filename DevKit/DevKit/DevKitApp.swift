@@ -7,7 +7,7 @@ struct DevKitApp: App {
 
     init() {
         do {
-            modelContainer = try ModelContainer(for: Workspace.self, CachedIssue.self, CachedPR.self)
+            modelContainer = try ModelContainer(for: Workspace.self, CachedIssue.self, CachedPR.self, AgentSession.self)
         } catch {
             fatalError("Failed to create ModelContainer: \(error)")
         }
