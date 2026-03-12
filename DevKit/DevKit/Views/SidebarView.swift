@@ -11,6 +11,8 @@ struct SidebarView: View {
         workspaces.first { $0.name == selectedWorkspaceName }
     }
 
+    @State private var hoveredTab: SidebarTab?
+
     enum SidebarTab: String, CaseIterable, Identifiable {
         case overview = "Overview"
         case issues = "Issues"
@@ -27,25 +29,107 @@ struct SidebarView: View {
     }
 
     var body: some View {
-        List(selection: $selectedTab) {
-            Section("Workspace") {
-                Picker("Workspace", selection: $selectedWorkspaceName) {
-                    Text("None").tag(String?.none)
-                    ForEach(workspaces) { ws in
-                        Text(ws.name).tag(String?.some(ws.name))
+        VStack(spacing: 0) {
+            // Brand header
+            HStack(spacing: DKSpacing.sm) {
+                Image(systemName: "hammer.fill")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(DKColor.Accent.brand)
+                Text("DevKit")
+                    .font(.system(size: 18, design: .serif).weight(.medium))
+                    .foregroundStyle(DKColor.Foreground.primary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, DKSpacing.lg)
+            .padding(.top, DKSpacing.lg)
+            .padding(.bottom, DKSpacing.md)
+
+            // Workspace selector
+            Menu {
+                Button {
+                    selectedWorkspaceName = nil
+                } label: {
+                    Label("None", systemImage: "xmark.circle")
+                }
+                Divider()
+                ForEach(workspaces) { ws in
+                    Button {
+                        selectedWorkspaceName = ws.name
+                    } label: {
+                        Label(ws.name, systemImage: "folder.fill")
                     }
                 }
-                .labelsHidden()
+            } label: {
+                HStack {
+                    Image(systemName: selectedWorkspaceName != nil ? "folder.fill" : "folder")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(DKColor.Accent.brand)
+                    Text(selectedWorkspaceName ?? "Select Workspace")
+                        .font(DKTypography.bodyMedium())
+                        .foregroundStyle(DKColor.Foreground.primary)
+                        .lineLimit(1)
+                    Spacer()
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(DKColor.Foreground.tertiary)
+                }
+                .padding(.horizontal, DKSpacing.md)
+                .padding(.vertical, DKSpacing.sm)
+                .background(DKColor.Surface.tertiary.opacity(0.6))
+                .clipShape(RoundedRectangle(cornerRadius: DKRadius.md))
             }
+            .buttonStyle(.plain)
+            .padding(.horizontal, DKSpacing.md)
+            .padding(.bottom, DKSpacing.xl)
 
-            Section("Navigation") {
+            // Section label
+            Text("NAVIGATION")
+                .font(DKTypography.captionSmall())
+                .tracking(1.0)
+                .foregroundStyle(DKColor.Foreground.tertiary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, DKSpacing.lg)
+                .padding(.bottom, DKSpacing.sm)
+
+            // Navigation tabs
+            VStack(spacing: DKSpacing.xxs) {
                 ForEach(SidebarTab.allCases) { tab in
-                    Label(tab.rawValue, systemImage: tab.icon)
-                        .tag(tab)
+                    sidebarRow(tab: tab)
                 }
             }
+            .padding(.horizontal, DKSpacing.sm)
+
+            Spacer()
         }
-        .listStyle(.sidebar)
-        .navigationTitle("DevKit")
+        .background(DKColor.Surface.secondary.opacity(0.5))
+    }
+
+    private func sidebarRow(tab: SidebarTab) -> some View {
+        Button {
+            selectedTab = tab
+        } label: {
+            HStack(spacing: DKSpacing.md) {
+                Image(systemName: tab.icon)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(selectedTab == tab ? DKColor.Accent.brand : DKColor.Foreground.secondary)
+                    .frame(width: 24)
+                Text(tab.rawValue)
+                    .font(DKTypography.bodyMedium())
+                    .foregroundStyle(selectedTab == tab ? DKColor.Foreground.primary : DKColor.Foreground.secondary)
+                Spacer()
+            }
+            .padding(.horizontal, DKSpacing.md)
+            .padding(.vertical, DKSpacing.sm)
+            .background(
+                RoundedRectangle(cornerRadius: DKRadius.md)
+                    .fill(selectedTab == tab ? DKColor.Accent.brand.opacity(0.1) : (hoveredTab == tab ? DKColor.Surface.tertiary.opacity(0.5) : .clear))
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered in
+            hoveredTab = isHovered ? tab : nil
+        }
+        .animation(DKMotion.Ease.hover, value: hoveredTab)
+        .animation(DKMotion.Ease.hover, value: selectedTab)
     }
 }
