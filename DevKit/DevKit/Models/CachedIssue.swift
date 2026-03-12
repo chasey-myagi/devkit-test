@@ -16,6 +16,7 @@ final class CachedIssue {
     var milestone: String?
     var attachmentURLsRaw: String
     var bodyHTML: String?
+    var linkedPRNumbersRaw: String
     var updatedAt: Date
     var workspaceName: String
 
@@ -34,6 +35,11 @@ final class CachedIssue {
         set { attachmentURLsRaw = (try? String(data: JSONEncoder().encode(newValue), encoding: .utf8)) ?? "[]" }
     }
 
+    var linkedPRNumbers: [Int] {
+        get { (try? JSONDecoder().decode([Int].self, from: Data(linkedPRNumbersRaw.utf8))) ?? [] }
+        set { linkedPRNumbersRaw = (try? String(data: JSONEncoder().encode(newValue), encoding: .utf8)) ?? "[]" }
+    }
+
     init(
         number: Int,
         title: String,
@@ -46,6 +52,7 @@ final class CachedIssue {
         milestone: String? = nil,
         attachmentURLs: [String] = [],
         bodyHTML: String? = nil,
+        linkedPRNumbers: [Int] = [],
         updatedAt: Date = .now,
         workspaceName: String
     ) {
@@ -60,6 +67,7 @@ final class CachedIssue {
         self.milestone = milestone
         self.attachmentURLsRaw = (try? String(data: JSONEncoder().encode(attachmentURLs), encoding: .utf8)) ?? "[]"
         self.bodyHTML = bodyHTML
+        self.linkedPRNumbersRaw = (try? String(data: JSONEncoder().encode(linkedPRNumbers), encoding: .utf8)) ?? "[]"
         self.updatedAt = updatedAt
         self.workspaceName = workspaceName
     }

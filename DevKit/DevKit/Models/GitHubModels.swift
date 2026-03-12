@@ -164,6 +164,29 @@ struct GHStatusCheck: Codable, Sendable {
     }
 }
 
+// MARK: - PR Merge Models
+
+enum PRMergeMethod: String, Sendable {
+    case squash, rebase
+}
+
+struct PRMergeability: Codable, Sendable {
+    var mergeable: String       // "MERGEABLE", "CONFLICTING", "UNKNOWN"
+    var mergeStateStatus: String // "CLEAN", "DIRTY", "BLOCKED", "UNSTABLE"
+
+    var canMerge: Bool {
+        mergeable == "MERGEABLE" && (mergeStateStatus == "CLEAN" || mergeStateStatus == "UNSTABLE")
+    }
+
+    var reasonText: String {
+        if mergeable == "CONFLICTING" { return "Has merge conflicts" }
+        if mergeStateStatus == "BLOCKED" { return "Merge blocked by branch protection" }
+        if mergeStateStatus == "DIRTY" { return "Required checks have not passed" }
+        if mergeable == "UNKNOWN" { return "Mergeability unknown, try again" }
+        return ""
+    }
+}
+
 extension JSONDecoder {
     static let ghDecoder = JSONDecoder()
 }

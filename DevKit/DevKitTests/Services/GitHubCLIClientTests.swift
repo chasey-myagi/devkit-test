@@ -61,6 +61,40 @@ struct GitHubCLIClientTests {
         #expect(status == "To Do")
     }
 
+    @Test func checksPRMergeability() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: """
+        {"mergeable":"MERGEABLE","mergeStateStatus":"CLEAN"}
+        """)
+        let client = GitHubCLIClient(processRunner: mock)
+        let result = try await client.checkPRMergeable(repo: "owner/repo", prNumber: 4)
+        #expect(result.mergeable == "MERGEABLE")
+        #expect(result.mergeStateStatus == "CLEAN")
+        #expect(result.canMerge == true)
+    }
+
+    @Test func mergesPRWithSquash() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: "")
+        let client = GitHubCLIClient(processRunner: mock)
+        try await client.mergePR(repo: "owner/repo", prNumber: 4, method: .squash)
+        let cmd = mock.recordedCommands.first
+        #expect(cmd?.arguments.contains("merge") == true)
+        #expect(cmd?.arguments.contains("--squash") == true)
+        #expect(cmd?.arguments.contains("--delete-branch") == true)
+        #expect(cmd?.arguments.contains("4") == true)
+    }
+
+    @Test func mergesPRWithRebase() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: "")
+        let client = GitHubCLIClient(processRunner: mock)
+        try await client.mergePR(repo: "owner/repo", prNumber: 5, method: .rebase)
+        let cmd = mock.recordedCommands.first
+        #expect(cmd?.arguments.contains("--rebase") == true)
+        #expect(cmd?.arguments.contains("5") == true)
+    }
+
     @Test func updatesProjectStatus() async throws {
         let mock = MockProcessRunner()
         mock.stubSuccess(for: "gh", output: """
