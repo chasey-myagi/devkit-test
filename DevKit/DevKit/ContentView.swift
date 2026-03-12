@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var monitor: GitHubMonitor?
     @State private var boardViewModel: IssueBoardViewModel?
     @State private var prBoardViewModel: PRBoardViewModel?
+    @State private var coordinator: AgentCoordinator?
 
     /// Resolved workspace object from name
     private var selectedWorkspace: Workspace? {
@@ -22,6 +23,8 @@ struct ContentView: View {
                 selectedWorkspaceName: $selectedWorkspaceName,
                 selectedTab: $selectedTab
             )
+            .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 300)
+            .toolbar(removing: .title)
         } detail: {
             NavigationStack {
                 if let ws = selectedWorkspace {
@@ -40,9 +43,15 @@ struct ContentView: View {
                                     await prBoardViewModel?.refresh(workspace: ws)
                                 }
                                 .transition(.opacity.combined(with: .offset(x: 20)))
+                        case .agents:
+                            AgentBoardView(workspace: ws, coordinator: coordinator)
+                                .transition(.opacity.combined(with: .offset(x: 20)))
                         }
                     }
                     .animation(DKMotion.Spring.default, value: selectedTab)
+                    .navigationDestination(for: UUID.self) { sessionID in
+                        AgentSessionDetailView(sessionID: sessionID, coordinator: coordinator)
+                    }
                 } else {
                     WelcomeView { name, repo, path in
                         let manager = WorkspaceManager(modelContainer: modelContext.container)
@@ -90,19 +99,24 @@ struct ContentView: View {
 
     private func setupWorkspace(name: String?) {
         monitor?.stopPolling()
+        coordinator?.stop()
         guard let ws = workspaces.first(where: { $0.name == name }) else {
             monitor = nil
             boardViewModel = nil
             prBoardViewModel = nil
+            coordinator = nil
             return
         }
         let container = modelContext.container
         let newMonitor = GitHubMonitor(ghClient: ghClient, modelContainer: container)
-        let newVM = IssueBoardViewModel(ghClient: ghClient, monitor: newMonitor, modelContainer: container)
+        let newCoordinator = AgentCoordinator(ghClient: ghClient)
+        newCoordinator.setup(modelContainer: container, maxConcurrency: ws.maxConcurrency)
+        let newVM = IssueBoardViewModel(ghClient: ghClient, monitor: newMonitor, modelContainer: container, coordinator: newCoordinator)
         let newPRVM = PRBoardViewModel(ghClient: ghClient, modelContainer: container)
         monitor = newMonitor
         boardViewModel = newVM
         prBoardViewModel = newPRVM
+        coordinator = newCoordinator
         startPolling(workspace: ws, interval: TimeInterval(ws.pollingIntervalSeconds))
     }
 

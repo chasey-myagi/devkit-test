@@ -5,6 +5,7 @@ struct SidebarView: View {
     @Query private var workspaces: [Workspace]
     @Binding var selectedWorkspaceName: String?
     @Binding var selectedTab: SidebarTab
+    @State private var showSettings = false
 
     /// Resolved workspace from name binding
     var selectedWorkspace: Workspace? {
@@ -16,7 +17,8 @@ struct SidebarView: View {
     enum SidebarTab: String, CaseIterable, Identifiable {
         case overview = "Overview"
         case issues = "Issues"
-        case prs = "Pull Requests"
+        case prs = "PRs"
+        case agents = "Agents"
 
         var id: String { rawValue }
         var icon: String {
@@ -24,59 +26,73 @@ struct SidebarView: View {
             case .overview: return "square.grid.2x2"
             case .issues: return "exclamationmark.circle"
             case .prs: return "arrow.triangle.pull"
+            case .agents: return "terminal"
             }
         }
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Brand header
-            HStack(spacing: DKSpacing.sm) {
-                Image(systemName: "hammer.fill")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(DKColor.Accent.brand)
-                Text("DevKit")
-                    .font(.system(size: 18, design: .serif).weight(.medium))
-                    .foregroundStyle(DKColor.Foreground.primary)
+            // Brand header — icon + name + subtitle
+            VStack(alignment: .leading, spacing: DKSpacing.xs) {
+                HStack(spacing: DKSpacing.sm) {
+                    Image(systemName: "hammer.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(DKColor.Accent.brand)
+                    Text("DevKit")
+                        .font(.system(size: 20, design: .serif).weight(.semibold))
+                        .foregroundStyle(DKColor.Foreground.primary)
+                }
+                Text("GitHub Project Manager")
+                    .font(DKTypography.captionSmall())
+                    .foregroundStyle(DKColor.Foreground.tertiary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, DKSpacing.lg)
-            .padding(.top, DKSpacing.lg)
-            .padding(.bottom, DKSpacing.md)
+            .padding(.top, DKSpacing.xl)
+            .padding(.bottom, DKSpacing.lg)
 
             // Workspace selector
             Menu {
-                Button {
-                    selectedWorkspaceName = nil
-                } label: {
-                    Label("None", systemImage: "xmark.circle")
-                }
-                Divider()
                 ForEach(workspaces) { ws in
                     Button {
                         selectedWorkspaceName = ws.name
                     } label: {
-                        Label(ws.name, systemImage: "folder.fill")
+                        HStack {
+                            Label(ws.name, systemImage: "folder.fill")
+                            if ws.name == selectedWorkspaceName {
+                                Image(systemName: "checkmark")
+                            }
+                        }
                     }
                 }
+                if !workspaces.isEmpty {
+                    Divider()
+                }
+                Button {
+                    selectedWorkspaceName = nil
+                } label: {
+                    Label("Clear Selection", systemImage: "xmark.circle")
+                }
             } label: {
-                HStack {
+                HStack(spacing: DKSpacing.sm) {
                     Image(systemName: selectedWorkspaceName != nil ? "folder.fill" : "folder")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(DKColor.Accent.brand)
-                    Text(selectedWorkspaceName ?? "Select Workspace")
+                    Text(selectedWorkspaceName ?? "Workspace")
                         .font(DKTypography.bodyMedium())
                         .foregroundStyle(DKColor.Foreground.primary)
                         .lineLimit(1)
+                        .truncationMode(.tail)
                     Spacer()
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(DKColor.Foreground.tertiary)
                 }
                 .padding(.horizontal, DKSpacing.md)
-                .padding(.vertical, DKSpacing.sm)
+                .padding(.vertical, 10)
                 .background(DKColor.Surface.tertiary.opacity(0.6))
-                .clipShape(RoundedRectangle(cornerRadius: DKRadius.md))
+                .clipShape(RoundedRectangle(cornerRadius: DKRadius.sm))
             }
             .buttonStyle(.plain)
             .padding(.horizontal, DKSpacing.md)
@@ -92,7 +108,7 @@ struct SidebarView: View {
                 .padding(.bottom, DKSpacing.sm)
 
             // Navigation tabs
-            VStack(spacing: DKSpacing.xxs) {
+            VStack(spacing: DKSpacing.xs) {
                 ForEach(SidebarTab.allCases) { tab in
                     sidebarRow(tab: tab)
                 }
@@ -100,8 +116,36 @@ struct SidebarView: View {
             .padding(.horizontal, DKSpacing.sm)
 
             Spacer()
+
+            // Bottom settings button
+            Divider()
+                .padding(.horizontal, DKSpacing.md)
+
+            Button {
+                showSettings = true
+            } label: {
+                HStack(spacing: DKSpacing.md) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(DKColor.Foreground.secondary)
+                        .frame(width: 24)
+                    Text("Settings")
+                        .font(DKTypography.bodyMedium())
+                        .foregroundStyle(DKColor.Foreground.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, DKSpacing.md)
+                .padding(.vertical, DKSpacing.sm)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, DKSpacing.sm)
+            .padding(.vertical, DKSpacing.md)
         }
         .background(DKColor.Surface.secondary.opacity(0.5))
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .frame(minWidth: 600, minHeight: 400)
+        }
     }
 
     private func sidebarRow(tab: SidebarTab) -> some View {
@@ -110,7 +154,7 @@ struct SidebarView: View {
         } label: {
             HStack(spacing: DKSpacing.md) {
                 Image(systemName: tab.icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(selectedTab == tab ? DKColor.Accent.brand : DKColor.Foreground.secondary)
                     .frame(width: 24)
                 Text(tab.rawValue)
@@ -119,10 +163,10 @@ struct SidebarView: View {
                 Spacer()
             }
             .padding(.horizontal, DKSpacing.md)
-            .padding(.vertical, DKSpacing.sm)
+            .padding(.vertical, 10)
             .background(
-                RoundedRectangle(cornerRadius: DKRadius.md)
-                    .fill(selectedTab == tab ? DKColor.Accent.brand.opacity(0.1) : (hoveredTab == tab ? DKColor.Surface.tertiary.opacity(0.5) : .clear))
+                RoundedRectangle(cornerRadius: DKRadius.sm)
+                    .fill(selectedTab == tab ? DKColor.Accent.brand.opacity(0.12) : (hoveredTab == tab ? DKColor.Surface.tertiary.opacity(0.5) : .clear))
             )
         }
         .buttonStyle(.plain)
