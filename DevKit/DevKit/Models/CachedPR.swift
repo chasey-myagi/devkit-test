@@ -13,6 +13,7 @@ final class CachedPR {
     var reviewState: String       // "APPROVED", "CHANGES_REQUESTED", "PENDING"
     var checksStatus: String      // "SUCCESS", "FAILURE", "PENDING"
     var linkedIssueNumbersRaw: String
+    var reviewCount: Int
     var updatedAt: Date
     var workspaceName: String
 
@@ -38,6 +39,7 @@ final class CachedPR {
         reviewState: String = "PENDING",
         checksStatus: String = "PENDING",
         linkedIssueNumbers: [Int] = [],
+        reviewCount: Int = 0,
         updatedAt: Date = .now,
         workspaceName: String
     ) {
@@ -49,6 +51,7 @@ final class CachedPR {
         self.reviewState = reviewState
         self.checksStatus = checksStatus
         self.linkedIssueNumbersRaw = (try? String(data: JSONEncoder().encode(linkedIssueNumbers), encoding: .utf8)) ?? "[]"
+        self.reviewCount = reviewCount
         self.updatedAt = updatedAt
         self.workspaceName = workspaceName
     }

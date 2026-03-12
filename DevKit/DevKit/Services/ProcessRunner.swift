@@ -10,6 +10,14 @@ enum ProcessRunnerError: Error, LocalizedError {
         case .executionFailed(let status, let stderr): return "Process exited with status \(status): \(stderr)"
         }
     }
+
+    /// 判断是否为 GitHub API rate limit 错误（HTTP 403 + stderr 包含相关关键词）
+    var isRateLimited: Bool {
+        guard case .executionFailed(_, let stderr) = self else { return false }
+        let lowered = stderr.lowercased()
+        return lowered.contains("rate limit") || lowered.contains("api rate limit")
+            || lowered.contains("403")
+    }
 }
 
 protocol ProcessRunning: Sendable {

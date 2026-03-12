@@ -58,7 +58,6 @@ struct GitHubMonitorTests {
         let container = try makeContainer()
         let context = container.mainContext
 
-        // Pre-insert a CachedPR that links to issue #1
         let pr = CachedPR(
             number: 10,
             title: "Fix issue 1",
@@ -92,7 +91,6 @@ struct GitHubMonitorTests {
         let container = try makeContainer()
         let context = container.mainContext
 
-        // Pre-insert a CachedIssue with linkedPRNumbers but no matching PR
         let existing = CachedIssue(
             number: 1,
             title: "bug",
@@ -120,6 +118,96 @@ struct GitHubMonitorTests {
             predicate: #Predicate { $0.workspaceName == "test" }
         ))
         #expect(issues[0].linkedPRNumbers.isEmpty)
+    }
+
+    @Test @MainActor func rateLimitSetsRateLimitedUntil() async throws {
+        let mock = MockProcessRunner()
+        mock.stubFailure(
+            for: "gh",
+            error: ProcessRunnerError.executionFailed(
+                terminationStatus: 1,
+                stderr: "HTTP 403: API rate limit exceeded"
+            )
+        )
+        let container = try makeContainer()
+        let client = GitHubCLIClient(processRunner: mock)
+        let monitor = GitHubMonitor(ghClient: client, modelContainer: container)
+
+        do {
+            _ = try await monitor.poll(
+                repo: "o/r",
+                workspaceName: "test",
+                statusResolver: { _, _ in "To Do" }
+            )
+            Issue.record("Expected error to be thrown")
+        } catch {
+            // Expected
+        }
+
+        #expect(monitor.rateLimitedUntil != nil)
+        if let until = monitor.rateLimitedUntil {
+            let interval = until.timeIntervalSinceNow
+            #expect(interval > 800)
+            #expect(interval <= 900)
+        }
+    }
+
+    @Test @MainActor func rateLimitSkipsPollDuringCooldown() async throws {
+        let mock = MockProcessRunner()
+        mock.stubFailure(
+            for: "gh",
+            error: ProcessRunnerError.executionFailed(
+                terminationStatus: 1,
+                stderr: "HTTP 403: API rate limit exceeded"
+            )
+        )
+        let container = try makeContainer()
+        let client = GitHubCLIClient(processRunner: mock)
+        let monitor = GitHubMonitor(ghClient: client, modelContainer: container)
+
+        _ = try? await monitor.poll(
+            repo: "o/r",
+            workspaceName: "test",
+            statusResolver: { _, _ in "To Do" }
+        )
+        #expect(monitor.rateLimitedUntil != nil)
+
+        let callCountBefore = mock.recordedCommands.count
+
+        do {
+            _ = try await monitor.poll(
+                repo: "o/r",
+                workspaceName: "test",
+                statusResolver: { _, _ in "To Do" }
+            )
+            Issue.record("Expected error to be thrown")
+        } catch {
+            // Expected - rate limited
+        }
+
+        #expect(mock.recordedCommands.count == callCountBefore)
+    }
+
+    @Test @MainActor func rateLimitDoesNotIncrementConsecutiveFailures() async throws {
+        let mock = MockProcessRunner()
+        mock.stubFailure(
+            for: "gh",
+            error: ProcessRunnerError.executionFailed(
+                terminationStatus: 1,
+                stderr: "HTTP 403: API rate limit exceeded"
+            )
+        )
+        let container = try makeContainer()
+        let client = GitHubCLIClient(processRunner: mock)
+        let monitor = GitHubMonitor(ghClient: client, modelContainer: container)
+
+        _ = try? await monitor.poll(
+            repo: "o/r",
+            workspaceName: "test",
+            statusResolver: { _, _ in "To Do" }
+        )
+
+        #expect(monitor.consecutiveFailures == 0)
     }
 
     @Test @MainActor func removesStaleIssues() async throws {
