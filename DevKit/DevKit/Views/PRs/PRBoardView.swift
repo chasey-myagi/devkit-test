@@ -30,13 +30,14 @@ struct PRBoardView: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DKSpacing.md) {
             PRColumnView(title: "Draft", prs: draftPRs, repoFullName: workspace.repoFullName)
             PRColumnView(title: "In Review", prs: inReviewPRs, repoFullName: workspace.repoFullName)
             PRColumnView(title: "Need Fix", prs: needFixPRs, repoFullName: workspace.repoFullName)
             PRColumnView(title: "Ready", prs: readyPRs, repoFullName: workspace.repoFullName)
         }
-        .padding()
+        .padding(DKSpacing.lg)
+        .background(DKColor.Surface.primary)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {

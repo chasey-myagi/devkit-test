@@ -2,41 +2,45 @@ import SwiftUI
 
 struct PRCardView: View {
     let pr: CachedPR
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isHovered = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: DKSpacing.sm) {
             // PR number + review state
             HStack {
                 Text("#\(pr.number)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(DKTypography.issueNumber())
+                    .foregroundStyle(DKColor.Foreground.secondary)
                 Spacer()
                 reviewBadge
             }
 
             // Title
             Text(pr.title)
-                .font(.subheadline)
+                .dkTextStyle(.cardTitle)
+                .foregroundStyle(DKColor.Foreground.primary)
                 .lineLimit(2)
 
             // Diff stats + CI status
-            HStack(spacing: 8) {
+            HStack(spacing: DKSpacing.sm) {
                 // Diff stats
-                HStack(spacing: 4) {
+                HStack(spacing: DKSpacing.xs) {
                     Text("+\(pr.additions)")
-                        .font(.caption2)
-                        .foregroundStyle(.green)
+                        .font(DKTypography.captionSmall())
+                        .foregroundStyle(DKColor.Accent.positive)
                     Text("-\(pr.deletions)")
-                        .font(.caption2)
-                        .foregroundStyle(.red)
+                        .font(DKTypography.captionSmall())
+                        .foregroundStyle(DKColor.Accent.critical)
                 }
 
                 // Linked issues
                 if !pr.linkedIssueNumbers.isEmpty {
                     let issueText = pr.linkedIssueNumbers.map { "#\($0)" }.joined(separator: ", ")
                     Label(issueText, systemImage: "link")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(DKTypography.captionSmall())
+                        .foregroundStyle(DKColor.Foreground.secondary)
                         .lineLimit(1)
                 }
 
@@ -47,22 +51,25 @@ struct PRCardView: View {
 
                 // Updated time
                 Text(pr.updatedAt, style: .relative)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .font(DKTypography.captionSmall())
+                    .foregroundStyle(DKColor.Foreground.tertiary)
             }
         }
-        .padding(10)
-        .background(.background)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
+        .padding(DKSpacing.md)
+        .background(DKColor.Surface.card)
+        .clipShape(RoundedRectangle(cornerRadius: DKRadius.lg))
+        .dkShadow(isHovered ? DKShadow.md : DKShadow.sm)
+        .scaleEffect(isHovered && !reduceMotion ? 1.01 : 1.0)
+        .animation(reduceMotion ? nil : DKMotion.Ease.hover, value: isHovered)
+        .onHover { isHovered = $0 }
     }
 
     private var reviewBadge: some View {
         Text(reviewLabel)
-            .font(.caption2)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 2)
-            .background(reviewColor.opacity(0.2))
+            .font(DKTypography.captionSmall())
+            .padding(.horizontal, DKSpacing.xs)
+            .padding(.vertical, DKSpacing.xxs)
+            .background(DKColor.Accent.tintBackground(reviewColor, colorScheme: colorScheme))
             .foregroundStyle(reviewColor)
             .clipShape(Capsule())
     }
@@ -77,9 +84,9 @@ struct PRCardView: View {
 
     private var reviewColor: Color {
         switch pr.reviewState {
-        case "APPROVED": return .green
-        case "CHANGES_REQUESTED": return .orange
-        default: return .secondary
+        case "APPROVED": return DKColor.Accent.positive
+        case "CHANGES_REQUESTED": return DKColor.Accent.warning
+        default: return Color.secondary
         }
     }
 
@@ -88,15 +95,15 @@ struct PRCardView: View {
             switch pr.checksStatus {
             case "SUCCESS":
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(DKColor.Accent.positive)
             case "FAILURE":
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(DKColor.Accent.critical)
             default:
                 Image(systemName: "clock.circle")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DKColor.Foreground.secondary)
             }
         }
-        .font(.caption)
+        .font(DKTypography.caption())
     }
 }
