@@ -9,6 +9,10 @@ struct GHIssue: Codable, Sendable {
     var updatedAt: String
     var body: String?
 
+    var parsedUpdatedAt: Date {
+        GHDateParser.parse(updatedAt) ?? .now
+    }
+
     static func extractAttachmentURLs(from body: String?) -> [String] {
         guard let body else { return [] }
         let pattern = #"https://github\.com/user-attachments/assets/[^\s\)\]\"']+"#
@@ -47,20 +51,8 @@ struct GHComment: Codable, Sendable, Identifiable {
     var createdAt: String
 
     var createdDate: Date? {
-        Self.fracFormatter.date(from: createdAt) ?? Self.noFracFormatter.date(from: createdAt)
+        GHDateParser.parse(createdAt)
     }
-
-    private nonisolated(unsafe) static let fracFormatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
-
-    private nonisolated(unsafe) static let noFracFormatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime]
-        return f
-    }()
 }
 
 struct GHGraphQLProjectStatusResponse: Codable, Sendable {
@@ -174,4 +166,22 @@ struct GHStatusCheck: Codable, Sendable {
 
 extension JSONDecoder {
     static let ghDecoder = JSONDecoder()
+}
+
+enum GHDateParser {
+    private nonisolated(unsafe) static let fracFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private nonisolated(unsafe) static let noFracFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    static func parse(_ string: String) -> Date? {
+        fracFormatter.date(from: string) ?? noFracFormatter.date(from: string)
+    }
 }

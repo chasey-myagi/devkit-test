@@ -36,13 +36,29 @@ struct ProcessRunner: ProcessRunning {
                     return
                 }
 
-                let outData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-                let errData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                // 并行读取 stdout/stderr 防止管道缓冲区满导致 deadlock
+                final class DataBox: @unchecked Sendable {
+                    var value = Data()
+                }
+                let outBox = DataBox()
+                let errBox = DataBox()
+                let group = DispatchGroup()
+                group.enter()
+                DispatchQueue.global().async {
+                    outBox.value = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+                    group.leave()
+                }
+                group.enter()
+                DispatchQueue.global().async {
+                    errBox.value = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                    group.leave()
+                }
+                group.wait()
                 process.waitUntilExit()
 
-                let outStr = String(data: outData, encoding: .utf8)?
+                let outStr = String(data: outBox.value, encoding: .utf8)?
                     .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                let errStr = String(data: errData, encoding: .utf8)?
+                let errStr = String(data: errBox.value, encoding: .utf8)?
                     .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
                 if process.terminationStatus != 0 {

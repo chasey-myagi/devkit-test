@@ -1,8 +1,10 @@
 import Foundation
+import os
 import UserNotifications
 
+private let logger = Logger(subsystem: "com.chasey.DevKit", category: "NotificationService")
+
 /// macOS 原生通知服务
-/// Phase 1.5: 新 issue assign、状态变更通知
 @MainActor
 final class NotificationService {
     static let shared = NotificationService()
@@ -15,10 +17,10 @@ final class NotificationService {
             let granted = try await UNUserNotificationCenter.current()
                 .requestAuthorization(options: [.alert, .sound, .badge])
             if !granted {
-                print("DevKit: Notification permission denied")
+                logger.warning("Notification permission denied")
             }
         } catch {
-            print("DevKit: Notification authorization error: \(error)")
+            logger.error("Notification authorization error: \(error)")
         }
     }
 
@@ -34,9 +36,11 @@ final class NotificationService {
             content: content,
             trigger: nil
         )
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error {
-                print("DevKit: Failed to deliver new-issue notification #\(issueNumber): \(error)")
+        Task {
+            do {
+                try await UNUserNotificationCenter.current().add(request)
+            } catch {
+                logger.error("Failed to deliver new-issue notification #\(issueNumber): \(error)")
             }
         }
     }
@@ -53,9 +57,32 @@ final class NotificationService {
             content: content,
             trigger: nil
         )
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error {
-                print("DevKit: Failed to deliver status-change notification #\(issueNumber): \(error)")
+        Task {
+            do {
+                try await UNUserNotificationCenter.current().add(request)
+            } catch {
+                logger.error("Failed to deliver status-change notification #\(issueNumber): \(error)")
+            }
+        }
+    }
+
+    /// 连续轮询失败时发送通知
+    func sendConsecutiveFailureNotification(failures: Int) {
+        let content = UNMutableNotificationContent()
+        content.title = "GitHub Polling Failed"
+        content.body = "连续 \(failures) 次轮询失败，请检查网络或 gh auth 状态"
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "consecutive-failure",
+            content: content,
+            trigger: nil
+        )
+        Task {
+            do {
+                try await UNUserNotificationCenter.current().add(request)
+            } catch {
+                logger.error("Failed to deliver failure notification: \(error)")
             }
         }
     }

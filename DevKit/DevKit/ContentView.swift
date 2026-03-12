@@ -30,6 +30,10 @@ struct ContentView: View {
                         IssueBoardView(workspace: ws, viewModel: boardViewModel)
                     case .prs:
                         PRBoardView(workspace: ws, viewModel: prBoardViewModel)
+                            .task(id: ws.name) {
+                                // I-6: PR 首次切换时自动加载
+                                await prBoardViewModel?.refresh(workspace: ws)
+                            }
                     }
                 } else {
                     ContentUnavailableView(
@@ -42,24 +46,13 @@ struct ContentView: View {
         }
         .frame(minWidth: 900, minHeight: 600)
         .onChange(of: selectedWorkspaceName) { _, newName in
+            setupWorkspace(name: newName)
+        }
+        // I-4: 轮询间隔修改后立即生效
+        .onChange(of: selectedWorkspace?.pollingIntervalSeconds) { _, newInterval in
+            guard let ws = selectedWorkspace, let interval = newInterval else { return }
             monitor?.stopPolling()
-            guard let ws = workspaces.first(where: { $0.name == newName }) else {
-                monitor = nil
-                boardViewModel = nil
-                prBoardViewModel = nil
-                return
-            }
-            let container = modelContext.container
-            let newMonitor = GitHubMonitor(ghClient: ghClient, modelContainer: container)
-            let newVM = IssueBoardViewModel(ghClient: ghClient, monitor: newMonitor, modelContainer: container)
-            monitor = newMonitor
-            boardViewModel = newVM
-            prBoardViewModel = PRBoardViewModel(ghClient: ghClient, modelContainer: container)
-            newMonitor.startPolling(
-                repo: ws.repoFullName,
-                workspaceName: ws.name,
-                interval: TimeInterval(ws.pollingIntervalSeconds)
-            )
+            startPolling(workspace: ws, interval: TimeInterval(interval))
         }
         .onReceive(NotificationCenter.default.publisher(for: .refreshIssues)) { _ in
             guard let ws = selectedWorkspace else { return }
@@ -67,6 +60,35 @@ struct ContentView: View {
                 await boardViewModel?.refresh(workspace: ws)
                 await prBoardViewModel?.refresh(workspace: ws)
             }
+        }
+    }
+
+    private func setupWorkspace(name: String?) {
+        monitor?.stopPolling()
+        guard let ws = workspaces.first(where: { $0.name == name }) else {
+            monitor = nil
+            boardViewModel = nil
+            prBoardViewModel = nil
+            return
+        }
+        let container = modelContext.container
+        let newMonitor = GitHubMonitor(ghClient: ghClient, modelContainer: container)
+        let newVM = IssueBoardViewModel(ghClient: ghClient, monitor: newMonitor, modelContainer: container)
+        let newPRVM = PRBoardViewModel(ghClient: ghClient, modelContainer: container)
+        monitor = newMonitor
+        boardViewModel = newVM
+        prBoardViewModel = newPRVM
+        startPolling(workspace: ws, interval: TimeInterval(ws.pollingIntervalSeconds))
+    }
+
+    private func startPolling(workspace ws: Workspace, interval: TimeInterval) {
+        monitor?.startPolling(
+            repo: ws.repoFullName,
+            workspaceName: ws.name,
+            interval: interval
+        ) { [weak prBoardViewModel] in
+            // I-1: 每次 issue 轮询后也自动刷新 PR
+            await prBoardViewModel?.refresh(workspace: ws)
         }
     }
 }

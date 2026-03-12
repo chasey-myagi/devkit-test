@@ -130,21 +130,25 @@ final class GitHubCLIClient: Sendable {
             throw GitHubCLIError.mutationFailed("Status option '\(newStatus)' not found")
         }
 
-        // Mutation uses IDs from lookup response (safe hex strings from GitHub API)
         let mutation = """
-        mutation {
+        mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
             updateProjectV2ItemFieldValue(input: {
-                projectId: "\(projectId)"
-                itemId: "\(itemId)"
-                fieldId: "\(fieldId)"
-                value: { singleSelectOptionId: "\(optionId)" }
+                projectId: $projectId
+                itemId: $itemId
+                fieldId: $fieldId
+                value: { singleSelectOptionId: $optionId }
             }) {
                 projectV2Item { id }
             }
         }
         """
         _ = try await processRunner.run("gh", arguments: [
-            "api", "graphql", "-f", "query=\(mutation)"
+            "api", "graphql",
+            "-F", "projectId=\(projectId)",
+            "-F", "itemId=\(itemId)",
+            "-F", "fieldId=\(fieldId)",
+            "-F", "optionId=\(optionId)",
+            "-f", "query=\(mutation)"
         ])
     }
 

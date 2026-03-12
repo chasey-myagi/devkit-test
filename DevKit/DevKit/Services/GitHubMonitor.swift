@@ -28,28 +28,39 @@ final class GitHubMonitor {
     private var pollTimer: Timer?
     /// 首次 poll 标志：首次同步时不发通知，避免通知轰炸
     private var isFirstPoll = true
+    /// 每次 timer 轮询完成后执行的额外工作（如刷新 PR）
+    private var onPollComplete: (() async -> Void)?
 
     init(ghClient: GitHubCLIClient, modelContainer: ModelContainer) {
         self.ghClient = ghClient
         self.modelContainer = modelContainer
     }
 
-    func startPolling(repo: String, workspaceName: String, interval: TimeInterval) {
+    func startPolling(
+        repo: String,
+        workspaceName: String,
+        interval: TimeInterval,
+        onPollComplete: (() async -> Void)? = nil
+    ) {
         stopPolling()
+        self.onPollComplete = onPollComplete
         pollTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
                 _ = try? await self.poll(repo: repo, workspaceName: workspaceName)
+                await self.onPollComplete?()
             }
         }
         Task {
             _ = try? await poll(repo: repo, workspaceName: workspaceName)
+            await onPollComplete?()
         }
     }
 
     func stopPolling() {
         pollTimer?.invalidate()
         pollTimer = nil
+        onPollComplete = nil
     }
 
     /// statusResolver defaults to calling ghClient.fetchProjectStatus.
@@ -76,10 +87,16 @@ final class GitHubMonitor {
         } catch {
             consecutiveFailures += 1
             lastError = error.localizedDescription
+            // I-2: 连续 3 次失败发通知
+            if consecutiveFailures == 3 {
+                NotificationService.shared.sendConsecutiveFailureNotification(
+                    failures: consecutiveFailures
+                )
+            }
             throw error
         }
 
-        // I1: Batch resolve statuses concurrently with TaskGroup
+        // Batch resolve statuses concurrently with TaskGroup
         let statusMap: [Int: String] = await withTaskGroup(of: (Int, String).self) { group in
             for remote in remoteIssues {
                 group.addTask {
@@ -124,7 +141,7 @@ final class GitHubMonitor {
                 cached.assignees = remote.assignees.map(\.login)
                 cached.milestone = remote.milestone?.title
                 cached.attachmentURLs = attachmentURLs
-                cached.updatedAt = .now
+                cached.updatedAt = remote.parsedUpdatedAt
             } else {
                 changes.newIssues.append(remote)
                 let newCached = CachedIssue(
@@ -138,13 +155,14 @@ final class GitHubMonitor {
                     assignees: remote.assignees.map(\.login),
                     milestone: remote.milestone?.title,
                     attachmentURLs: attachmentURLs,
+                    updatedAt: remote.parsedUpdatedAt,
                     workspaceName: workspaceName
                 )
                 context.insert(newCached)
             }
         }
 
-        // I7: Remove stale issues no longer in remote set
+        // Remove stale issues no longer in remote set
         let remoteNumbers = Set(remoteIssues.map(\.number))
         for cached in cachedIssues where !remoteNumbers.contains(cached.number) {
             context.delete(cached)
