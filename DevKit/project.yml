@@ -1,0 +1,37 @@
+name: DevKit
+options:
+  bundleIdPrefix: com.chasey
+  deploymentTarget:
+    macOS: "15.0"
+  xcodeVersion: "26.1"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "15.0"
+
+targets:
+  DevKit:
+    type: application
+    platform: macOS
+    sources:
+      - DevKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chasey.DevKit
+        INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.developer-tools"
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: YES
+
+  DevKitTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - DevKitTests
+    dependencies:
+      - target: DevKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chasey.DevKitTests
+        GENERATE_INFOPLIST_FILE: YES
