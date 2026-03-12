@@ -22,6 +22,8 @@ struct ContentView: View {
                 selectedWorkspaceName: $selectedWorkspaceName,
                 selectedTab: $selectedTab
             )
+            .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 300)
+            .toolbar(removing: .title)
         } detail: {
             NavigationStack {
                 if let ws = selectedWorkspace {
@@ -39,6 +41,9 @@ struct ContentView: View {
                                     // I-6: PR 首次切换时自动加载
                                     await prBoardViewModel?.refresh(workspace: ws)
                                 }
+                                .transition(.opacity.combined(with: .offset(x: 20)))
+                        case .agents:
+                            AgentBoardView(workspace: ws, coordinator: nil)
                                 .transition(.opacity.combined(with: .offset(x: 20)))
                         }
                     }
