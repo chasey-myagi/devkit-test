@@ -24,7 +24,7 @@ struct SettingsView: View {
             agentSettings
                 .tabItem { Label("Agent", systemImage: "cpu") }
         }
-        .frame(width: 500, height: 400)
+        .frame(width: 500, height: 550)
     }
 
     // MARK: - Workspace Settings
@@ -195,6 +195,28 @@ struct SettingsView: View {
                             in: 1...5)
                         .font(DKTypography.body())
                         .foregroundStyle(DKColor.Foreground.primary)
+                }
+                .padding(DKSpacing.lg)
+                .background(DKColor.Surface.card)
+                .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
+                .dkShadow(DKShadow.sm)
+
+                DKSectionHeader(title: "Prompt Template", icon: "text.bubble")
+                VStack(alignment: .leading, spacing: DKSpacing.sm) {
+                    Text("支持占位符：{{number}}, {{title}}, {{body}}, {{labels}}, {{repo}}, {{attachments}}")
+                        .font(DKTypography.captionSmall())
+                        .foregroundStyle(DKColor.Foreground.tertiary)
+                    TextEditor(text: Binding(
+                        get: { ws.agentPromptTemplate },
+                        set: { ws.agentPromptTemplate = $0 }
+                    ))
+                    .font(.system(.body, design: .monospaced))
+                    .frame(minHeight: 150)
+                    .clipShape(RoundedRectangle(cornerRadius: DKRadius.lg))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DKRadius.lg)
+                            .stroke(DKColor.Surface.tertiary, lineWidth: 1)
+                    )
                 }
                 .padding(DKSpacing.lg)
                 .background(DKColor.Surface.card)

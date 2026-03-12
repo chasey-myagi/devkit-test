@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var monitor: GitHubMonitor?
     @State private var boardViewModel: IssueBoardViewModel?
     @State private var prBoardViewModel: PRBoardViewModel?
+    @State private var coordinator: AgentCoordinator?
 
     /// Resolved workspace object from name
     private var selectedWorkspace: Workspace? {
@@ -43,11 +44,14 @@ struct ContentView: View {
                                 }
                                 .transition(.opacity.combined(with: .offset(x: 20)))
                         case .agents:
-                            AgentBoardView(workspace: ws, coordinator: nil)
+                            AgentBoardView(workspace: ws, coordinator: coordinator)
                                 .transition(.opacity.combined(with: .offset(x: 20)))
                         }
                     }
                     .animation(DKMotion.Spring.default, value: selectedTab)
+                    .navigationDestination(for: UUID.self) { sessionID in
+                        AgentSessionDetailView(sessionID: sessionID, coordinator: coordinator)
+                    }
                 } else {
                     WelcomeView { name, repo, path in
                         let manager = WorkspaceManager(modelContainer: modelContext.container)
@@ -95,19 +99,24 @@ struct ContentView: View {
 
     private func setupWorkspace(name: String?) {
         monitor?.stopPolling()
+        coordinator?.stop()
         guard let ws = workspaces.first(where: { $0.name == name }) else {
             monitor = nil
             boardViewModel = nil
             prBoardViewModel = nil
+            coordinator = nil
             return
         }
         let container = modelContext.container
         let newMonitor = GitHubMonitor(ghClient: ghClient, modelContainer: container)
         let newVM = IssueBoardViewModel(ghClient: ghClient, monitor: newMonitor, modelContainer: container)
         let newPRVM = PRBoardViewModel(ghClient: ghClient, modelContainer: container)
+        let newCoordinator = AgentCoordinator(ghClient: ghClient)
+        newCoordinator.setup(modelContainer: container, maxConcurrency: ws.maxConcurrency)
         monitor = newMonitor
         boardViewModel = newVM
         prBoardViewModel = newPRVM
+        coordinator = newCoordinator
         startPolling(workspace: ws, interval: TimeInterval(ws.pollingIntervalSeconds))
     }
 
