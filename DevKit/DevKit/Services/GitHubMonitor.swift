@@ -168,6 +168,28 @@ final class GitHubMonitor {
             context.delete(cached)
         }
 
+        // Build reverse mapping: issue number -> [PR numbers] from CachedPR data
+        let cachedPRs = try context.fetch(FetchDescriptor<CachedPR>(
+            predicate: #Predicate { $0.workspaceName == workspaceName }
+        ))
+        var issueToLinkedPRs: [Int: [Int]] = [:]
+        for pr in cachedPRs {
+            for issueNum in pr.linkedIssueNumbers {
+                issueToLinkedPRs[issueNum, default: []].append(pr.number)
+            }
+        }
+
+        // Refresh all cached issues' linkedPRNumbers
+        let allCachedIssues = try context.fetch(FetchDescriptor<CachedIssue>(
+            predicate: #Predicate { $0.workspaceName == workspaceName }
+        ))
+        for cached in allCachedIssues {
+            let linked = issueToLinkedPRs[cached.number] ?? []
+            if cached.linkedPRNumbers != linked {
+                cached.linkedPRNumbers = linked
+            }
+        }
+
         try context.save()
 
         // 首次 poll 跳过通知（避免应用启动时对已有 issue 发一堆通知）

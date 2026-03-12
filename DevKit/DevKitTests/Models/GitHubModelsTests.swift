@@ -38,6 +38,40 @@ struct GitHubModelsTests {
         #expect(issue.milestone == nil)
     }
 
+    @Test func decodesPRMergeability() throws {
+        let json = """
+        {"mergeable":"MERGEABLE","mergeStateStatus":"CLEAN"}
+        """.data(using: .utf8)!
+        let result = try JSONDecoder.ghDecoder.decode(PRMergeability.self, from: json)
+        #expect(result.mergeable == "MERGEABLE")
+        #expect(result.mergeStateStatus == "CLEAN")
+        #expect(result.canMerge == true)
+        #expect(result.reasonText.isEmpty)
+    }
+
+    @Test func mergeabilityConflicting() {
+        let m = PRMergeability(mergeable: "CONFLICTING", mergeStateStatus: "DIRTY")
+        #expect(m.canMerge == false)
+        #expect(m.reasonText == "Has merge conflicts")
+    }
+
+    @Test func mergeabilityBlocked() {
+        let m = PRMergeability(mergeable: "MERGEABLE", mergeStateStatus: "BLOCKED")
+        #expect(m.canMerge == false)
+        #expect(m.reasonText == "Merge blocked by branch protection")
+    }
+
+    @Test func mergeabilityUnstableCanMerge() {
+        let m = PRMergeability(mergeable: "MERGEABLE", mergeStateStatus: "UNSTABLE")
+        #expect(m.canMerge == true)
+    }
+
+    @Test func mergeabilityUnknown() {
+        let m = PRMergeability(mergeable: "UNKNOWN", mergeStateStatus: "CLEAN")
+        #expect(m.canMerge == false)
+        #expect(m.reasonText == "Mergeability unknown, try again")
+    }
+
     @Test func extractsAttachmentURLsFromBody() {
         let body = """
         问题描述：表格解析错误

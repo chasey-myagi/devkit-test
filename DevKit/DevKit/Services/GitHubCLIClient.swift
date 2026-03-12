@@ -179,6 +179,30 @@ final class GitHubCLIClient: Sendable {
         return try JSONDecoder.ghDecoder.decode([GHComment].self, from: Data(output.utf8))
     }
 
+    // MARK: - PR Merge
+
+    func mergePR(repo: String, prNumber: Int, method: PRMergeMethod) async throws {
+        let mergeFlag = switch method {
+        case .squash: "--squash"
+        case .rebase: "--rebase"
+        }
+        _ = try await processRunner.run("gh", arguments: [
+            "pr", "merge", String(prNumber),
+            "--repo", repo,
+            mergeFlag,
+            "--delete-branch"
+        ])
+    }
+
+    func checkPRMergeable(repo: String, prNumber: Int) async throws -> PRMergeability {
+        let output = try await processRunner.run("gh", arguments: [
+            "pr", "view", String(prNumber),
+            "--repo", repo,
+            "--json", "mergeable,mergeStateStatus"
+        ])
+        return try JSONDecoder.ghDecoder.decode(PRMergeability.self, from: Data(output.utf8))
+    }
+
     // MARK: - Private
 
     private func splitRepo(_ repo: String) throws -> (owner: String, name: String) {

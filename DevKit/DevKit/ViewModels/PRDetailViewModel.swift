@@ -8,6 +8,13 @@ final class PRDetailViewModel {
     private(set) var isLoadingComments = false
     private(set) var loadError: String?
 
+    // Merge state
+    private(set) var mergeability: PRMergeability?
+    private(set) var isCheckingMergeability = false
+    private(set) var isMerging = false
+    private(set) var mergeSuccessMessage: String?
+    private(set) var mergeError: String?
+
     init(ghClient: GitHubCLIClient = GitHubCLIClient()) {
         self.ghClient = ghClient
     }
@@ -21,5 +28,33 @@ final class PRDetailViewModel {
         } catch {
             loadError = error.localizedDescription
         }
+    }
+
+    func checkMergeability(repo: String, prNumber: Int) async {
+        isCheckingMergeability = true
+        defer { isCheckingMergeability = false }
+        do {
+            mergeability = try await ghClient.checkPRMergeable(repo: repo, prNumber: prNumber)
+            mergeError = nil
+        } catch {
+            mergeError = error.localizedDescription
+        }
+    }
+
+    func merge(repo: String, prNumber: Int, method: PRMergeMethod) async {
+        isMerging = true
+        mergeError = nil
+        mergeSuccessMessage = nil
+        defer { isMerging = false }
+        do {
+            try await ghClient.mergePR(repo: repo, prNumber: prNumber, method: method)
+            mergeSuccessMessage = "PR #\(prNumber) merged via \(method.rawValue)"
+        } catch {
+            mergeError = error.localizedDescription
+        }
+    }
+
+    func dismissMergeSuccess() {
+        mergeSuccessMessage = nil
     }
 }

@@ -8,7 +8,7 @@ struct GitHubMonitorTests {
 
     private func makeContainer() throws -> ModelContainer {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try ModelContainer(for: Workspace.self, CachedIssue.self, configurations: config)
+        return try ModelContainer(for: Workspace.self, CachedIssue.self, CachedPR.self, configurations: config)
     }
 
     @Test @MainActor func detectsNewIssues() async throws {
@@ -52,6 +52,74 @@ struct GitHubMonitorTests {
         #expect(changes.statusChanges[0].issueNumber == 1)
         #expect(changes.statusChanges[0].oldStatus == "To Do")
         #expect(changes.statusChanges[0].newStatus == "In Progress")
+    }
+
+    @Test @MainActor func buildsLinkedPRMapping() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+
+        // Pre-insert a CachedPR that links to issue #1
+        let pr = CachedPR(
+            number: 10,
+            title: "Fix issue 1",
+            linkedIssueNumbers: [1],
+            workspaceName: "test"
+        )
+        context.insert(pr)
+        try context.save()
+
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: """
+        [{"number": 1, "title": "bug A", "labels": [], "assignees": [], "milestone": null, "updatedAt": "2026-03-10T00:00:00Z", "body": ""}]
+        """)
+        let client = GitHubCLIClient(processRunner: mock)
+        let monitor = GitHubMonitor(ghClient: client, modelContainer: container)
+
+        _ = try await monitor.poll(
+            repo: "o/r",
+            workspaceName: "test",
+            statusResolver: { _, _ in "To Do" }
+        )
+
+        let issues = try context.fetch(FetchDescriptor<CachedIssue>(
+            predicate: #Predicate { $0.workspaceName == "test" }
+        ))
+        #expect(issues.count == 1)
+        #expect(issues[0].linkedPRNumbers == [10])
+    }
+
+    @Test @MainActor func clearsLinkedPRsWhenNoMatch() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+
+        // Pre-insert a CachedIssue with linkedPRNumbers but no matching PR
+        let existing = CachedIssue(
+            number: 1,
+            title: "bug",
+            projectStatus: "To Do",
+            linkedPRNumbers: [99],
+            workspaceName: "test"
+        )
+        context.insert(existing)
+        try context.save()
+
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: """
+        [{"number": 1, "title": "bug", "labels": [], "assignees": [], "milestone": null, "updatedAt": "2026-03-10T00:00:00Z", "body": ""}]
+        """)
+        let client = GitHubCLIClient(processRunner: mock)
+        let monitor = GitHubMonitor(ghClient: client, modelContainer: container)
+
+        _ = try await monitor.poll(
+            repo: "o/r",
+            workspaceName: "test",
+            statusResolver: { _, _ in "To Do" }
+        )
+
+        let issues = try context.fetch(FetchDescriptor<CachedIssue>(
+            predicate: #Predicate { $0.workspaceName == "test" }
+        ))
+        #expect(issues[0].linkedPRNumbers.isEmpty)
     }
 
     @Test @MainActor func removesStaleIssues() async throws {
