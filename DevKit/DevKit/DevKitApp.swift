@@ -18,10 +18,22 @@ struct DevKitApp: App {
             ContentView()
         }
         .modelContainer(modelContainer)
+        .commands {
+            CommandGroup(after: .toolbar) {
+                Button("Refresh") {
+                    NotificationCenter.default.post(name: .refreshIssues, object: nil)
+                }
+                .keyboardShortcut("r", modifiers: .command)
+            }
+        }
 
         Settings {
             SettingsView()
         }
         .modelContainer(modelContainer)
     }
+}
+
+extension Notification.Name {
+    static let refreshIssues = Notification.Name("DevKit.refreshIssues")
 }

@@ -4,10 +4,11 @@ import SwiftData
 struct IssueBoardView: View {
     let workspace: Workspace
     @Query private var allIssues: [CachedIssue]
-    @State private var viewModel: IssueBoardViewModel?
+    var viewModel: IssueBoardViewModel?
 
-    init(workspace: Workspace) {
+    init(workspace: Workspace, viewModel: IssueBoardViewModel? = nil) {
         self.workspace = workspace
+        self.viewModel = viewModel
         let name = workspace.name
         _allIssues = Query(
             filter: #Predicate<CachedIssue> { $0.workspaceName == name },
@@ -51,7 +52,6 @@ struct IssueBoardView: View {
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
-                .keyboardShortcut("r", modifiers: .command)
             }
         }
         .overlay {
