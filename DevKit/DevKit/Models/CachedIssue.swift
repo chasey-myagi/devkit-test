@@ -18,6 +18,7 @@ final class CachedIssue {
     var bodyHTML: String?
     var updatedAt: Date
     var workspaceName: String
+    var attachmentStatus: String = "none"  // none / downloading / downloaded / failed
 
     var labels: [String] {
         get { (try? JSONDecoder().decode([String].self, from: Data(labelsRaw.utf8))) ?? [] }

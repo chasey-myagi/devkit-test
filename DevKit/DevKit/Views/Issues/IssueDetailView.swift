@@ -50,6 +50,9 @@ struct IssueDetailView: View {
                 // Attachments
                 if !issue.attachmentURLs.isEmpty {
                     GroupBox("Attachments (\(issue.attachmentURLs.count))") {
+                        // 下载状态指示
+                        attachmentStatusView
+
                         ForEach(Array(issue.attachmentURLs.enumerated()), id: \.offset) { _, url in
                             HStack {
                                 Image(systemName: "paperclip")
@@ -59,12 +62,47 @@ struct IssueDetailView: View {
                             }
                         }
 
-                        Button("Download All") {
-                            Task {
-                                await viewModel.downloadAttachments(
-                                    urls: issue.attachmentURLs,
-                                    to: "\(localPath)/issues/\(issue.number)/files"
-                                )
+                        // downloaded 时显示本地路径
+                        if issue.attachmentStatus == "downloaded" {
+                            HStack {
+                                Image(systemName: "folder")
+                                    .foregroundStyle(.secondary)
+                                Text("\(localPath)/issues/\(issue.number)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                Spacer()
+                                Button("Open in Finder") {
+                                    NSWorkspace.shared.open(URL(fileURLWithPath: "\(localPath)/issues/\(issue.number)"))
+                                }
+                                .font(.caption)
+                            }
+                        }
+
+                        HStack {
+                            if issue.attachmentStatus == "failed" {
+                                Button("Retry Download") {
+                                    Task {
+                                        await viewModel.downloadAttachments(
+                                            urls: issue.attachmentURLs,
+                                            to: "\(localPath)/issues/\(issue.number)"
+                                        )
+                                        issue.attachmentStatus = viewModel.downloadError == nil ? "downloaded" : "failed"
+                                    }
+                                }
+                            }
+
+                            if issue.attachmentStatus == "none" {
+                                Button("Download All") {
+                                    Task {
+                                        issue.attachmentStatus = "downloading"
+                                        await viewModel.downloadAttachments(
+                                            urls: issue.attachmentURLs,
+                                            to: "\(localPath)/issues/\(issue.number)"
+                                        )
+                                        issue.attachmentStatus = viewModel.downloadError == nil ? "downloaded" : "failed"
+                                    }
+                                }
                             }
                         }
                         .disabled(viewModel.isDownloading)
@@ -110,6 +148,38 @@ struct IssueDetailView: View {
         .navigationTitle("#\(issue.number)")
         .task {
             await viewModel.loadComments(repo: repoFullName, issueNumber: issue.number)
+        }
+    }
+
+    @ViewBuilder
+    private var attachmentStatusView: some View {
+        switch issue.attachmentStatus {
+        case "downloading":
+            HStack(spacing: 6) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Downloading attachments...")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        case "downloaded":
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                Text("All attachments downloaded")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        case "failed":
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                Text("Some downloads failed")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        default:
+            EmptyView()
         }
     }
 

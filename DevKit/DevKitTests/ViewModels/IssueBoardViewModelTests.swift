@@ -136,6 +136,146 @@ struct IssueBoardViewModelTests {
         #expect(vm.error != nil)
     }
 
+    @Test @MainActor func attachmentsDownloadedOnInProgress() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let ws = Workspace(name: "test", repoFullName: "o/r", localPath: "/tmp/repo")
+        context.insert(ws)
+        let cached = CachedIssue(
+            number: 3,
+            title: "issue with attachments",
+            projectStatus: "To Do",
+            attachmentURLs: ["https://github.com/user-attachments/assets/image.png"],
+            workspaceName: "test"
+        )
+        context.insert(cached)
+        try context.save()
+
+        let ghMock = MockProcessRunner()
+        ghMock.stubSuccess(for: "gh", output: """
+        {"data":{"repository":{"issue":{"projectItems":{"nodes":[{"id":"item1","project":{"id":"proj1","field":{"id":"field1","options":[{"id":"opt1","name":"In Progress"}]}}}]}}}}}
+        """)
+        let ghClient = GitHubCLIClient(processRunner: ghMock)
+
+        let wtMock = MockProcessRunner()
+        wtMock.stubSuccess(for: "git", output: "")
+        let worktreeManager = WorktreeManager(processRunner: wtMock)
+
+        let dlMock = MockProcessRunner()
+        dlMock.stubSuccess(for: "curl", output: "")
+        let attachmentDownloader = AttachmentDownloader(processRunner: dlMock)
+
+        let monitorMock = MockProcessRunner()
+        monitorMock.stubSuccess(for: "gh", output: makeIssueJSON([(3, "issue with attachments")]))
+        let monitor = GitHubMonitor(ghClient: GitHubCLIClient(processRunner: monitorMock), modelContainer: container)
+
+        let vm = IssueBoardViewModel(
+            ghClient: ghClient,
+            monitor: monitor,
+            modelContainer: container,
+            worktreeManager: worktreeManager,
+            attachmentDownloader: attachmentDownloader
+        )
+
+        await vm.updateStatus(issue: cached, newStatus: "In Progress", workspace: ws)
+
+        // curl should have been called to download the attachment
+        #expect(dlMock.recordedCommands.count == 1)
+        let curlCmd = dlMock.recordedCommands[0]
+        #expect(curlCmd.executable == "curl")
+        #expect(curlCmd.arguments.contains("-L"))
+        #expect(curlCmd.arguments.contains("-o"))
+        #expect(curlCmd.arguments.contains("https://github.com/user-attachments/assets/image.png"))
+        #expect(cached.attachmentStatus == "downloaded")
+    }
+
+    @Test @MainActor func attachmentsNotDownloadedWhenNoURLs() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let ws = Workspace(name: "test", repoFullName: "o/r", localPath: "/tmp/repo")
+        context.insert(ws)
+        let cached = CachedIssue(number: 1, title: "no attachments", projectStatus: "To Do", workspaceName: "test")
+        context.insert(cached)
+        try context.save()
+
+        let ghMock = MockProcessRunner()
+        ghMock.stubSuccess(for: "gh", output: """
+        {"data":{"repository":{"issue":{"projectItems":{"nodes":[{"id":"item1","project":{"id":"proj1","field":{"id":"field1","options":[{"id":"opt1","name":"In Progress"}]}}}]}}}}}
+        """)
+        let ghClient = GitHubCLIClient(processRunner: ghMock)
+
+        let wtMock = MockProcessRunner()
+        wtMock.stubSuccess(for: "git", output: "")
+        let worktreeManager = WorktreeManager(processRunner: wtMock)
+
+        let dlMock = MockProcessRunner()
+        let attachmentDownloader = AttachmentDownloader(processRunner: dlMock)
+
+        let monitorMock = MockProcessRunner()
+        monitorMock.stubSuccess(for: "gh", output: makeIssueJSON([(1, "no attachments")]))
+        let monitor = GitHubMonitor(ghClient: GitHubCLIClient(processRunner: monitorMock), modelContainer: container)
+
+        let vm = IssueBoardViewModel(
+            ghClient: ghClient,
+            monitor: monitor,
+            modelContainer: container,
+            worktreeManager: worktreeManager,
+            attachmentDownloader: attachmentDownloader
+        )
+
+        await vm.updateStatus(issue: cached, newStatus: "In Progress", workspace: ws)
+
+        // curl should NOT have been called
+        #expect(dlMock.recordedCommands.isEmpty)
+        #expect(cached.attachmentStatus == "none")
+    }
+
+    @Test @MainActor func attachmentDownloadFailureSetsFailedStatus() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let ws = Workspace(name: "test", repoFullName: "o/r", localPath: "/tmp/repo")
+        context.insert(ws)
+        let cached = CachedIssue(
+            number: 5,
+            title: "failing attachments",
+            projectStatus: "To Do",
+            attachmentURLs: ["https://example.com/fail.png"],
+            workspaceName: "test"
+        )
+        context.insert(cached)
+        try context.save()
+
+        let ghMock = MockProcessRunner()
+        ghMock.stubSuccess(for: "gh", output: """
+        {"data":{"repository":{"issue":{"projectItems":{"nodes":[{"id":"item1","project":{"id":"proj1","field":{"id":"field1","options":[{"id":"opt1","name":"In Progress"}]}}}]}}}}}
+        """)
+        let ghClient = GitHubCLIClient(processRunner: ghMock)
+
+        let wtMock = MockProcessRunner()
+        wtMock.stubSuccess(for: "git", output: "")
+        let worktreeManager = WorktreeManager(processRunner: wtMock)
+
+        let dlMock = MockProcessRunner()
+        dlMock.stubFailure(for: "curl", error: ProcessRunnerError.executionFailed(terminationStatus: 22, stderr: "404"))
+        let attachmentDownloader = AttachmentDownloader(processRunner: dlMock)
+
+        let monitorMock = MockProcessRunner()
+        monitorMock.stubSuccess(for: "gh", output: makeIssueJSON([(5, "failing attachments")]))
+        let monitor = GitHubMonitor(ghClient: GitHubCLIClient(processRunner: monitorMock), modelContainer: container)
+
+        let vm = IssueBoardViewModel(
+            ghClient: ghClient,
+            monitor: monitor,
+            modelContainer: container,
+            worktreeManager: worktreeManager,
+            attachmentDownloader: attachmentDownloader
+        )
+
+        await vm.updateStatus(issue: cached, newStatus: "In Progress", workspace: ws)
+
+        #expect(cached.attachmentStatus == "failed")
+    }
+
     @Test @MainActor func worktreeFailureSetsErrorButKeepsStatus() async throws {
         let container = try makeContainer()
         let context = container.mainContext
