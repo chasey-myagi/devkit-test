@@ -45,6 +45,22 @@ struct GHComment: Codable, Sendable, Identifiable {
     var body: String
     var author: GHUser
     var createdAt: String
+
+    var createdDate: Date? {
+        Self.fracFormatter.date(from: createdAt) ?? Self.noFracFormatter.date(from: createdAt)
+    }
+
+    private nonisolated(unsafe) static let fracFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private nonisolated(unsafe) static let noFracFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
 }
 
 struct GHGraphQLProjectStatusResponse: Codable, Sendable {
@@ -81,10 +97,81 @@ struct GHGraphQLProjectLookupResponse: Codable, Sendable {
     struct Option: Codable, Sendable { var id: String; var name: String }
 }
 
+// MARK: - Pull Request Models
+
+struct GHPullRequest: Codable, Sendable {
+    var number: Int
+    var title: String
+    var isDraft: Bool
+    var additions: Int
+    var deletions: Int
+    var reviews: [GHReview]
+    var statusCheckRollup: [GHStatusCheck]
+    var updatedAt: String
+    var body: String?
+
+    /// 从 body 提取关联的 issue 号（#123, closes #456 等）
+    static func extractLinkedIssues(from body: String?) -> [Int] {
+        guard let body else { return [] }
+        let pattern = #"(?:closes?|fixes?|resolves?)\s+#(\d+)|#(\d+)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return [] }
+        let range = NSRange(body.startIndex..., in: body)
+        var numbers = Set<Int>()
+        regex.enumerateMatches(in: body, range: range) { match, _, _ in
+            guard let match else { return }
+            for i in 1..<match.numberOfRanges {
+                if let range = Range(match.range(at: i), in: body), let num = Int(body[range]) {
+                    numbers.insert(num)
+                }
+            }
+        }
+        return Array(numbers).sorted()
+    }
+
+    /// 综合 review 状态
+    var aggregatedReviewState: String {
+        if reviews.contains(where: { $0.state == "CHANGES_REQUESTED" }) { return "CHANGES_REQUESTED" }
+        if reviews.contains(where: { $0.state == "APPROVED" }) { return "APPROVED" }
+        return "PENDING"
+    }
+
+    /// 综合 CI 状态
+    var aggregatedChecksStatus: String {
+        if statusCheckRollup.isEmpty { return "PENDING" }
+        if statusCheckRollup.allSatisfy({ $0.status == "COMPLETED" && $0.conclusion == "SUCCESS" }) { return "SUCCESS" }
+        if statusCheckRollup.contains(where: { $0.conclusion == "FAILURE" }) { return "FAILURE" }
+        return "PENDING"
+    }
+}
+
+struct GHReview: Codable, Sendable {
+    var state: String  // "APPROVED", "CHANGES_REQUESTED", "COMMENTED"
+    var author: GHUser
+}
+
+struct GHStatusCheck: Codable, Sendable {
+    var context: String
+    var status: String       // "COMPLETED", "IN_PROGRESS", "QUEUED"
+    var conclusion: String?  // "SUCCESS", "FAILURE", "NEUTRAL"
+
+    enum CodingKeys: String, CodingKey {
+        case context, status, conclusion
+    }
+
+    init(context: String = "", status: String = "PENDING", conclusion: String? = nil) {
+        self.context = context
+        self.status = status
+        self.conclusion = conclusion
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        context = (try? container.decode(String.self, forKey: .context)) ?? ""
+        status = (try? container.decode(String.self, forKey: .status)) ?? "PENDING"
+        conclusion = try? container.decode(String.self, forKey: .conclusion)
+    }
+}
+
 extension JSONDecoder {
-    static let ghDecoder: JSONDecoder = {
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .useDefaultKeys
-        return decoder
-    }()
+    static let ghDecoder = JSONDecoder()
 }

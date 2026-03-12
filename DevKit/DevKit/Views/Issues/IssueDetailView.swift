@@ -3,6 +3,7 @@ import SwiftUI
 struct IssueDetailView: View {
     let issue: CachedIssue
     let repoFullName: String
+    let localPath: String
     @State private var viewModel = IssueDetailViewModel()
 
     var body: some View {
@@ -49,7 +50,7 @@ struct IssueDetailView: View {
                 // Attachments
                 if !issue.attachmentURLs.isEmpty {
                     GroupBox("Attachments (\(issue.attachmentURLs.count))") {
-                        ForEach(issue.attachmentURLs, id: \.self) { url in
+                        ForEach(Array(issue.attachmentURLs.enumerated()), id: \.offset) { _, url in
                             HStack {
                                 Image(systemName: "paperclip")
                                 Text(URL(string: url)?.lastPathComponent ?? url)
@@ -62,7 +63,7 @@ struct IssueDetailView: View {
                             Task {
                                 await viewModel.downloadAttachments(
                                     urls: issue.attachmentURLs,
-                                    to: "\(NSHomeDirectory())/MOI/moi/issues/\(issue.number)/files"
+                                    to: "\(localPath)/issues/\(issue.number)/files"
                                 )
                             }
                         }
@@ -85,9 +86,15 @@ struct IssueDetailView: View {
                                         .font(.caption)
                                         .fontWeight(.semibold)
                                     Spacer()
-                                    Text(comment.createdAt)
-                                        .font(.caption2)
-                                        .foregroundStyle(.tertiary)
+                                    if let date = comment.createdDate {
+                                        Text(date, style: .relative)
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                    } else {
+                                        Text(comment.createdAt)
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                    }
                                 }
                                 Text(comment.body)
                                     .font(.callout)

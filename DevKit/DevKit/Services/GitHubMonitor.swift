@@ -21,10 +21,10 @@ typealias StatusResolver = @Sendable (String, Int) async throws -> String
 final class GitHubMonitor {
     private let ghClient: GitHubCLIClient
     private let modelContainer: ModelContainer
-    var isPolling = false
-    var lastPollDate: Date?
-    var lastError: String?
-    var consecutiveFailures = 0
+    private(set) var isPolling = false
+    private(set) var lastPollDate: Date?
+    private(set) var lastError: String?
+    private(set) var consecutiveFailures = 0
     private var pollTimer: Timer?
 
     init(ghClient: GitHubCLIClient, modelContainer: ModelContainer) {
@@ -77,6 +77,21 @@ final class GitHubMonitor {
             throw error
         }
 
+        // I1: Batch resolve statuses concurrently with TaskGroup
+        let statusMap: [Int: String] = await withTaskGroup(of: (Int, String).self) { group in
+            for remote in remoteIssues {
+                group.addTask {
+                    let status = (try? await resolver(repo, remote.number)) ?? "To Do"
+                    return (remote.number, status)
+                }
+            }
+            var map = [Int: String]()
+            for await (number, status) in group {
+                map[number] = status
+            }
+            return map
+        }
+
         let context = modelContainer.mainContext
         let cachedIssues = try context.fetch(FetchDescriptor<CachedIssue>(
             predicate: #Predicate { $0.workspaceName == workspaceName }
@@ -88,7 +103,7 @@ final class GitHubMonitor {
         for remote in remoteIssues {
             let parsed = LabelParser.parse(remote.labels.map(\.name))
             let attachmentURLs = GHIssue.extractAttachmentURLs(from: remote.body)
-            let status = (try? await resolver(repo, remote.number)) ?? "To Do"
+            let status = statusMap[remote.number] ?? "To Do"
 
             if let cached = cachedByNumber[remote.number] {
                 if cached.projectStatus != status {
@@ -125,6 +140,12 @@ final class GitHubMonitor {
                 )
                 context.insert(newCached)
             }
+        }
+
+        // I7: Remove stale issues no longer in remote set
+        let remoteNumbers = Set(remoteIssues.map(\.number))
+        for cached in cachedIssues where !remoteNumbers.contains(cached.number) {
+            context.delete(cached)
         }
 
         try context.save()

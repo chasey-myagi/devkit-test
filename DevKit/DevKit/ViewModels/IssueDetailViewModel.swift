@@ -4,13 +4,15 @@ import Foundation
 @Observable
 final class IssueDetailViewModel {
     private let ghClient: GitHubCLIClient
-    var isDownloading = false
-    var downloadError: String?
-    var comments: [GHComment] = []
-    var isLoadingComments = false
+    private let processRunner: ProcessRunning
+    private(set) var isDownloading = false
+    private(set) var downloadError: String?
+    private(set) var comments: [GHComment] = []
+    private(set) var isLoadingComments = false
 
-    init(ghClient: GitHubCLIClient = GitHubCLIClient()) {
+    init(ghClient: GitHubCLIClient = GitHubCLIClient(), processRunner: ProcessRunning = ProcessRunner()) {
         self.ghClient = ghClient
+        self.processRunner = processRunner
     }
 
     func loadComments(repo: String, issueNumber: Int) async {
@@ -28,12 +30,12 @@ final class IssueDetailViewModel {
         defer { isDownloading = false }
         do {
             try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
-        } catch { /* ignore */ }
+        } catch { /* directory may already exist */ }
         for url in urls {
             do {
                 let filename = URL(string: url)?.lastPathComponent ?? "attachment"
                 let destPath = "\(directory)/\(filename)"
-                _ = try await ProcessRunner().run("curl", arguments: [
+                _ = try await processRunner.run("curl", arguments: [
                     "-L", "-o", destPath, url
                 ])
             } catch {

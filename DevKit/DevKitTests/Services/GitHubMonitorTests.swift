@@ -53,4 +53,32 @@ struct GitHubMonitorTests {
         #expect(changes.statusChanges[0].oldStatus == "To Do")
         #expect(changes.statusChanges[0].newStatus == "In Progress")
     }
+
+    @Test @MainActor func removesStaleIssues() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        context.insert(CachedIssue(number: 1, title: "open", projectStatus: "To Do", workspaceName: "test"))
+        context.insert(CachedIssue(number: 2, title: "closed", projectStatus: "To Do", workspaceName: "test"))
+        try context.save()
+
+        let mock = MockProcessRunner()
+        // Remote only returns issue #1 — issue #2 was closed
+        mock.stubSuccess(for: "gh", output: """
+        [{"number": 1, "title": "open", "labels": [], "assignees": [], "milestone": null, "updatedAt": "2026-03-10T00:00:00Z", "body": ""}]
+        """)
+        let client = GitHubCLIClient(processRunner: mock)
+        let monitor = GitHubMonitor(ghClient: client, modelContainer: container)
+
+        _ = try await monitor.poll(
+            repo: "o/r",
+            workspaceName: "test",
+            statusResolver: { _, _ in "To Do" }
+        )
+
+        let remaining = try context.fetch(FetchDescriptor<CachedIssue>(
+            predicate: #Predicate { $0.workspaceName == "test" }
+        ))
+        #expect(remaining.count == 1)
+        #expect(remaining[0].number == 1)
+    }
 }

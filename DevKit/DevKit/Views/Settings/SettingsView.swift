@@ -10,6 +10,8 @@ struct SettingsView: View {
     @State private var newLocalPath = ""
     @State private var ghAuthStatus = "Checking..."
     @State private var showAddSheet = false
+    @State private var addError: String?
+    private let ghClient = GitHubCLIClient()
 
     var body: some View {
         TabView {
@@ -38,8 +40,13 @@ struct SettingsView: View {
                     }
                 }
                 .onDelete { indexSet in
+                    let manager = WorkspaceManager(modelContainer: modelContext.container)
                     for i in indexSet {
-                        modelContext.delete(workspaces[i])
+                        do {
+                            try manager.delete(name: workspaces[i].name)
+                        } catch {
+                            addError = error.localizedDescription
+                        }
                     }
                 }
             }
@@ -70,20 +77,35 @@ struct SettingsView: View {
                     }
                 }
             }
+
+            if let addError {
+                Text(addError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
             HStack {
-                Button("Cancel") { showAddSheet = false }
+                Button("Cancel") {
+                    showAddSheet = false
+                    addError = nil
+                }
                 Spacer()
                 Button("Add") {
-                    let ws = Workspace(
-                        name: newWorkspaceName,
-                        repoFullName: newRepoFullName,
-                        localPath: newLocalPath
-                    )
-                    modelContext.insert(ws)
-                    newWorkspaceName = ""
-                    newRepoFullName = ""
-                    newLocalPath = ""
-                    showAddSheet = false
+                    let manager = WorkspaceManager(modelContainer: modelContext.container)
+                    do {
+                        try manager.add(
+                            name: newWorkspaceName,
+                            repoFullName: newRepoFullName,
+                            localPath: newLocalPath
+                        )
+                        newWorkspaceName = ""
+                        newRepoFullName = ""
+                        newLocalPath = ""
+                        showAddSheet = false
+                        addError = nil
+                    } catch {
+                        addError = error.localizedDescription
+                    }
                 }
                 .disabled(newWorkspaceName.isEmpty || newRepoFullName.isEmpty || newLocalPath.isEmpty)
             }
@@ -104,8 +126,7 @@ struct SettingsView: View {
                 Button("Refresh") {
                     Task {
                         do {
-                            let client = GitHubCLIClient()
-                            ghAuthStatus = try await client.checkAuthStatus()
+                            ghAuthStatus = try await ghClient.checkAuthStatus()
                         } catch {
                             ghAuthStatus = "Error: \(error.localizedDescription)"
                         }
@@ -116,8 +137,7 @@ struct SettingsView: View {
         .padding()
         .task {
             do {
-                let client = GitHubCLIClient()
-                ghAuthStatus = try await client.checkAuthStatus()
+                ghAuthStatus = try await ghClient.checkAuthStatus()
             } catch {
                 ghAuthStatus = "Not authenticated. Run: gh auth login"
             }

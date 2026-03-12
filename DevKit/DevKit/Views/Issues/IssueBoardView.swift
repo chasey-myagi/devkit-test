@@ -60,7 +60,7 @@ struct IssueBoardView: View {
             }
         }
         .navigationDestination(for: CachedIssue.self) { issue in
-            IssueDetailView(issue: issue, repoFullName: workspace.repoFullName)
+            IssueDetailView(issue: issue, repoFullName: workspace.repoFullName, localPath: workspace.localPath)
         }
     }
 }

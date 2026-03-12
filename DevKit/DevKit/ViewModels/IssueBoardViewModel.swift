@@ -8,8 +8,8 @@ final class IssueBoardViewModel {
     private let monitor: GitHubMonitor
     private let modelContainer: ModelContainer
 
-    var isLoading = false
-    var error: String?
+    private(set) var isLoading = false
+    private(set) var error: String?
 
     init(ghClient: GitHubCLIClient, monitor: GitHubMonitor, modelContainer: ModelContainer) {
         self.ghClient = ghClient

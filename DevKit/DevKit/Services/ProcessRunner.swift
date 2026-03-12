@@ -18,27 +18,41 @@ protocol ProcessRunning: Sendable {
 
 struct ProcessRunner: ProcessRunning {
     func run(_ executable: String, arguments: [String]) async throws -> String {
-        let process = Process()
-        let stdoutPipe = Pipe()
-        let stderrPipe = Pipe()
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let process = Process()
+                let stdoutPipe = Pipe()
+                let stderrPipe = Pipe()
 
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = [executable] + arguments
-        process.standardOutput = stdoutPipe
-        process.standardError = stderrPipe
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                process.arguments = [executable] + arguments
+                process.standardOutput = stdoutPipe
+                process.standardError = stderrPipe
 
-        try process.run()
+                do {
+                    try process.run()
+                } catch {
+                    continuation.resume(throwing: error)
+                    return
+                }
 
-        let outData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-        let errData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
+                let outData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+                let errData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                process.waitUntilExit()
 
-        let outStr = String(data: outData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let errStr = String(data: errData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let outStr = String(data: outData, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let errStr = String(data: errData, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
-        if process.terminationStatus != 0 {
-            throw ProcessRunnerError.executionFailed(terminationStatus: process.terminationStatus, stderr: errStr)
+                if process.terminationStatus != 0 {
+                    continuation.resume(throwing: ProcessRunnerError.executionFailed(
+                        terminationStatus: process.terminationStatus, stderr: errStr
+                    ))
+                } else {
+                    continuation.resume(returning: outStr)
+                }
+            }
         }
-        return outStr
     }
 }

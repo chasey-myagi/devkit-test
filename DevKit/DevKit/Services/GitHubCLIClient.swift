@@ -51,15 +51,12 @@ final class GitHubCLIClient: Sendable {
     // MARK: - Project Status
 
     func fetchProjectStatus(repo: String, issueNumber: Int) async throws -> String {
-        let parts = repo.split(separator: "/")
-        guard parts.count == 2 else { throw GitHubCLIError.invalidRepo(repo) }
-        let owner = String(parts[0])
-        let name = String(parts[1])
+        let (owner, name) = try splitRepo(repo)
 
         let query = """
-        query {
-            repository(owner: "\(owner)", name: "\(name)") {
-                issue(number: \(issueNumber)) {
+        query($owner: String!, $name: String!, $number: Int!) {
+            repository(owner: $owner, name: $name) {
+                issue(number: $number) {
                     projectItems(first: 10) {
                         nodes {
                             fieldValueByName(name: "Status") {
@@ -74,7 +71,11 @@ final class GitHubCLIClient: Sendable {
         }
         """
         let output = try await processRunner.run("gh", arguments: [
-            "api", "graphql", "-f", "query=\(query)"
+            "api", "graphql",
+            "-F", "owner=\(owner)",
+            "-F", "name=\(name)",
+            "-F", "number=\(issueNumber)",
+            "-f", "query=\(query)"
         ])
         let response = try JSONDecoder.ghDecoder.decode(
             GHGraphQLProjectStatusResponse.self, from: Data(output.utf8)
@@ -85,15 +86,12 @@ final class GitHubCLIClient: Sendable {
     }
 
     func updateProjectStatus(repo: String, issueNumber: Int, newStatus: String) async throws {
-        let parts = repo.split(separator: "/")
-        guard parts.count == 2 else { throw GitHubCLIError.invalidRepo(repo) }
-        let owner = String(parts[0])
-        let name = String(parts[1])
+        let (owner, name) = try splitRepo(repo)
 
         let lookupQuery = """
-        query {
-            repository(owner: "\(owner)", name: "\(name)") {
-                issue(number: \(issueNumber)) {
+        query($owner: String!, $name: String!, $number: Int!) {
+            repository(owner: $owner, name: $name) {
+                issue(number: $number) {
                     projectItems(first: 10) {
                         nodes {
                             id
@@ -113,7 +111,11 @@ final class GitHubCLIClient: Sendable {
         }
         """
         let lookupOutput = try await processRunner.run("gh", arguments: [
-            "api", "graphql", "-f", "query=\(lookupQuery)"
+            "api", "graphql",
+            "-F", "owner=\(owner)",
+            "-F", "name=\(name)",
+            "-F", "number=\(issueNumber)",
+            "-f", "query=\(lookupQuery)"
         ])
         let lookupData = try JSONDecoder.ghDecoder.decode(
             GHGraphQLProjectLookupResponse.self, from: Data(lookupOutput.utf8)
@@ -128,6 +130,7 @@ final class GitHubCLIClient: Sendable {
             throw GitHubCLIError.mutationFailed("Status option '\(newStatus)' not found")
         }
 
+        // Mutation uses IDs from lookup response (safe hex strings from GitHub API)
         let mutation = """
         mutation {
             updateProjectV2ItemFieldValue(input: {
@@ -143,5 +146,40 @@ final class GitHubCLIClient: Sendable {
         _ = try await processRunner.run("gh", arguments: [
             "api", "graphql", "-f", "query=\(mutation)"
         ])
+    }
+
+    // MARK: - Pull Requests
+
+    func fetchAuthoredPRs(repo: String) async throws -> [GHPullRequest] {
+        let jsonFields = "number,title,isDraft,additions,deletions,reviews,statusCheckRollup,updatedAt,body"
+        let output = try await processRunner.run("gh", arguments: [
+            "pr", "list",
+            "--repo", repo,
+            "--author", "@me",
+            "--state", "open",
+            "--limit", "100",
+            "--json", jsonFields
+        ])
+        guard !output.isEmpty else { return [] }
+        return try JSONDecoder.ghDecoder.decode([GHPullRequest].self, from: Data(output.utf8))
+    }
+
+    func fetchPRReviewComments(repo: String, prNumber: Int) async throws -> [GHComment] {
+        let output = try await processRunner.run("gh", arguments: [
+            "pr", "view", String(prNumber),
+            "--repo", repo,
+            "--json", "comments",
+            "--jq", ".comments"
+        ])
+        guard !output.isEmpty else { return [] }
+        return try JSONDecoder.ghDecoder.decode([GHComment].self, from: Data(output.utf8))
+    }
+
+    // MARK: - Private
+
+    private func splitRepo(_ repo: String) throws -> (owner: String, name: String) {
+        let parts = repo.split(separator: "/")
+        guard parts.count == 2 else { throw GitHubCLIError.invalidRepo(repo) }
+        return (String(parts[0]), String(parts[1]))
     }
 }
