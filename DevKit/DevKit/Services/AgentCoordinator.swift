@@ -124,11 +124,8 @@ final class AgentCoordinator {
 
         switch event.type {
         case .stop:
+            // Worker release happens inside handleStopEvent Task after async PR check completes
             handleStopEvent(session: session)
-            // Release worker only on stop — process has exited
-            if let worker = workers.first(where: { $0.currentSession?.id == session.id }) {
-                worker.release()
-            }
         case .notification:
             // Keep worker alive so user can interact via terminal
             session.status = .needsIntervention
@@ -145,6 +142,7 @@ final class AgentCoordinator {
         let wsName = session.workspaceName
         let issueNumber = session.issueNumber
         let issueTitle = session.issueTitle
+        let sessionID = session.id
 
         Task { @MainActor [weak self] in
             guard let self, let container = modelContainer else { return }
@@ -174,6 +172,11 @@ final class AgentCoordinator {
                     issueNumber: issueNumber,
                     issueTitle: issueTitle
                 )
+            }
+
+            // Release worker AFTER async PR check completes
+            if let worker = workers.first(where: { $0.currentSession?.id == sessionID }) {
+                worker.release()
             }
         }
     }
