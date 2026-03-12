@@ -35,6 +35,24 @@ final class AgentWorker: Identifiable {
         logger.info("Worker \(self.id) started claude for issue #\(session.issueNumber)")
     }
 
+    func resume(session: AgentSession, workspacePath: String) {
+        currentSession = session
+        session.status = .intervening
+
+        let terminal = LocalProcessTerminalView(frame: .init(x: 0, y: 0, width: 800, height: 600))
+        terminalView = terminal
+
+        let env = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+        terminal.startProcess(
+            executable: "/bin/zsh",
+            args: ["-l", "-c", "cd \(shellescape(workspacePath)) && claude --resume --session-id \(shellescape(session.id.uuidString))"],
+            environment: env,
+            execName: "zsh"
+        )
+
+        logger.info("Worker \(self.id) resumed claude for issue #\(session.issueNumber)")
+    }
+
     func enableInteraction() {
         currentSession?.status = .intervening
     }

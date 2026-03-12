@@ -64,11 +64,12 @@ final class AgentCoordinator {
         context.insert(session)
         try? context.save()
 
-        // Configure workspace hooks
+        // Configure workspace hooks and skill
         do {
             try configurator.ensureHookConfig(at: workspace.localPath)
+            try configurator.ensureSkill(at: workspace.localPath, content: Self.defaultSkillContent)
         } catch {
-            logger.error("Failed to write hook config at \(workspace.localPath): \(error). Agent events may not be received.")
+            logger.error("Failed to configure workspace at \(workspace.localPath): \(error). Agent events may not be received.")
         }
 
         dispatch(workspace: workspace)
@@ -200,7 +201,46 @@ final class AgentCoordinator {
         try? context.save()
     }
 
+    // MARK: - Intervention
+
+    func resumeSession(_ session: AgentSession) {
+        guard let worker = workers.first(where: { $0.isIdle }) else {
+            logger.warning("No idle worker available to resume session for issue #\(session.issueNumber)")
+            return
+        }
+        guard let container = modelContainer else { return }
+        let context = container.mainContext
+
+        let wsName = session.workspaceName
+        let wsDescriptor = FetchDescriptor<Workspace>(
+            predicate: #Predicate { $0.name == wsName }
+        )
+        guard let workspace = try? context.fetch(wsDescriptor).first else { return }
+
+        worker.resume(session: session, workspacePath: workspace.localPath)
+        try? context.save()
+    }
+
     func stop() {
         notifyServer.stop()
     }
+
+    // MARK: - Default Skill
+
+    static let defaultSkillContent = """
+    ## 自动解决 GitHub Issue 的标准流程
+
+    1. 仔细阅读 Issue 描述和标签，理解需求
+    2. 分析相关代码，确定修改方案
+    3. 编写代码实现修复或功能
+    4. 确保代码通过编译和现有测试
+    5. 如有必要，添加新的测试用例
+    6. 创建一个 Pull Request，标题包含 Issue 编号（如 "Fix #42: ..."）
+    7. PR 描述中使用 "Closes #<issue_number>" 来关联 Issue
+
+    ### 注意事项
+    - 遵循项目现有的代码风格和约定
+    - 保持改动范围最小化，只修改必要的部分
+    - 如果遇到无法解决的问题，停下来等待用户介入
+    """
 }

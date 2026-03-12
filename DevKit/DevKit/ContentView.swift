@@ -109,10 +109,10 @@ struct ContentView: View {
         }
         let container = modelContext.container
         let newMonitor = GitHubMonitor(ghClient: ghClient, modelContainer: container)
-        let newVM = IssueBoardViewModel(ghClient: ghClient, monitor: newMonitor, modelContainer: container)
-        let newPRVM = PRBoardViewModel(ghClient: ghClient, modelContainer: container)
         let newCoordinator = AgentCoordinator(ghClient: ghClient)
         newCoordinator.setup(modelContainer: container, maxConcurrency: ws.maxConcurrency)
+        let newVM = IssueBoardViewModel(ghClient: ghClient, monitor: newMonitor, modelContainer: container, coordinator: newCoordinator)
+        let newPRVM = PRBoardViewModel(ghClient: ghClient, modelContainer: container)
         monitor = newMonitor
         boardViewModel = newVM
         prBoardViewModel = newPRVM

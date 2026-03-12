@@ -102,7 +102,7 @@ struct AgentSessionDetailView: View {
             .buttonStyle(DKSecondaryButtonStyle())
         case .needsIntervention:
             Button("介入") {
-                // TODO: Start claude --resume in a new SwiftTerm terminal
+                coordinator?.resumeSession(session)
             }
             .buttonStyle(DKPrimaryButtonStyle())
         case .intervening:

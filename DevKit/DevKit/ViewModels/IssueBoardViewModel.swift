@@ -12,6 +12,7 @@ final class IssueBoardViewModel {
     private let modelContainer: ModelContainer
     private let worktreeManager: WorktreeManager
     private let attachmentDownloader: AttachmentDownloader
+    private weak var coordinator: AgentCoordinator?
 
     private(set) var isLoading = false
     private(set) var error: String?
@@ -21,13 +22,15 @@ final class IssueBoardViewModel {
         monitor: GitHubMonitor,
         modelContainer: ModelContainer,
         worktreeManager: WorktreeManager = WorktreeManager(),
-        attachmentDownloader: AttachmentDownloader = AttachmentDownloader()
+        attachmentDownloader: AttachmentDownloader = AttachmentDownloader(),
+        coordinator: AgentCoordinator? = nil
     ) {
         self.ghClient = ghClient
         self.monitor = monitor
         self.modelContainer = modelContainer
         self.worktreeManager = worktreeManager
         self.attachmentDownloader = attachmentDownloader
+        self.coordinator = coordinator
     }
 
     func refresh(workspace: Workspace) async {
@@ -86,6 +89,9 @@ final class IssueBoardViewModel {
                     logger.error("Some attachments failed to download: \(failedURLs)")
                 }
             }
+
+            // 自动入队 Agent 任务
+            coordinator?.enqueue(issue: issue, workspace: workspace)
         }
     }
 }
