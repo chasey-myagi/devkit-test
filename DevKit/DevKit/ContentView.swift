@@ -44,11 +44,9 @@ struct ContentView: View {
                     }
                     .animation(DKMotion.Spring.default, value: selectedTab)
                 } else {
-                    ContentUnavailableView(
-                        "No Workspace Selected",
-                        systemImage: "folder.badge.questionmark",
-                        description: Text("Add a workspace in Settings or select one from the sidebar.")
-                    )
+                    WelcomeView {
+                        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                    }
                 }
             }
         }
