@@ -546,7 +546,7 @@ case .issues:
 case .prs:
     Text("Phase 2")
 }
-.animation(DKMotion.spring.default, value: selectedTab)
+.animation(DKMotion.Spring.default, value: selectedTab)
 ```
 
 #### 数值变化
@@ -554,7 +554,7 @@ case .prs:
 ```swift
 Text("\(count)")
     .contentTransition(.numericText(value: Double(count)))
-    .animation(DKMotion.spring.default, value: count)
+    .animation(DKMotion.Spring.default, value: count)
 ```
 
 #### Hero 卡片入场
