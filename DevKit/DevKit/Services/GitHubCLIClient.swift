@@ -203,6 +203,15 @@ final class GitHubCLIClient: Sendable {
         return try JSONDecoder.ghDecoder.decode(PRMergeability.self, from: Data(output.utf8))
     }
 
+    // MARK: - PR Diff
+
+    func fetchPRDiff(repo: String, prNumber: Int) async throws -> String {
+        try await processRunner.run("gh", arguments: [
+            "pr", "diff", String(prNumber),
+            "--repo", repo
+        ])
+    }
+
     // MARK: - Private
 
     private func splitRepo(_ repo: String) throws -> (owner: String, name: String) {

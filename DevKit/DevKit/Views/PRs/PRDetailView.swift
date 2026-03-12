@@ -4,10 +4,18 @@ struct PRDetailView: View {
     let pr: CachedPR
     let repoFullName: String
     @State private var viewModel = PRDetailViewModel()
+    @State private var activeTab: PRDetailTab = .overview
+
+    /// PR 详情页的 tab 类型
+    enum PRDetailTab: String, CaseIterable {
+        case overview = "Overview"
+        case diff = "Files Changed"
+    }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: DKSpacing.xl) {
+        VStack(spacing: 0) {
+            // Header + Tab 切换
+            VStack(alignment: .leading, spacing: DKSpacing.sm) {
                 // Header
                 VStack(alignment: .leading, spacing: DKSpacing.xs) {
                     HStack {
@@ -23,6 +31,42 @@ struct PRDetailView: View {
                         .dkTextStyle(.pageTitle)
                         .foregroundStyle(DKColor.Foreground.primary)
                 }
+                .padding(.horizontal, DKSpacing.xl)
+                .padding(.top, DKSpacing.xl)
+
+                // Tab 选择器
+                Picker("", selection: $activeTab) {
+                    ForEach(PRDetailTab.allCases, id: \.self) { tab in
+                        Text(tab.rawValue).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, DKSpacing.xl)
+            }
+
+            Divider()
+
+            // Tab 内容
+            switch activeTab {
+            case .overview:
+                overviewContent
+            case .diff:
+                PRDiffView(repo: repoFullName, prNumber: pr.number)
+            }
+        }
+        .background(DKColor.Surface.primary)
+        .navigationTitle("#\(pr.number)")
+        .task {
+            await viewModel.loadComments(repo: repoFullName, prNumber: pr.number)
+            await viewModel.checkMergeability(repo: repoFullName, prNumber: pr.number)
+        }
+    }
+
+    // MARK: - Overview 内容
+
+    private var overviewContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: DKSpacing.xl) {
 
                 Divider()
 
@@ -151,12 +195,6 @@ struct PRDetailView: View {
                 mergeSection
             }
             .padding(DKSpacing.xl)
-        }
-        .background(DKColor.Surface.primary)
-        .navigationTitle("#\(pr.number)")
-        .task {
-            await viewModel.loadComments(repo: repoFullName, prNumber: pr.number)
-            await viewModel.checkMergeability(repo: repoFullName, prNumber: pr.number)
         }
     }
 
