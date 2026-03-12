@@ -21,7 +21,7 @@ struct ContentView: View {
             if let ws = selectedWorkspace {
                 switch selectedTab {
                 case .issues:
-                    Text("Issue Board — coming next")
+                    IssueBoardView(workspace: ws)
                 case .prs:
                     Text("PR Board — Phase 2")
                 }
