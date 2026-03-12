@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var prBoardViewModel: PRBoardViewModel?
     @State private var coordinator: AgentCoordinator?
     @State private var actionsViewModel: ActionsViewModel?
+    @State private var insightsViewModel: InsightsViewModel?
 
     /// Resolved workspace object from name
     private var selectedWorkspace: Workspace? {
@@ -49,6 +50,11 @@ struct ContentView: View {
                         case .actions:
                             ActionsListView(workspace: ws, viewModel: actionsViewModel)
                                 .transition(.opacity.combined(with: .offset(x: 20)))
+                        case .reports:
+                            if let insightsVM = insightsViewModel {
+                                InsightsView(workspace: ws, viewModel: insightsVM)
+                                    .transition(.opacity.combined(with: .offset(x: 20)))
+                            }
                         }
                     }
                     .animation(DKMotion.Spring.default, value: selectedTab)
@@ -104,6 +110,7 @@ struct ContentView: View {
             prBoardViewModel = nil
             coordinator = nil
             actionsViewModel = nil
+            insightsViewModel = nil
             return
         }
         let container = modelContext.container
@@ -117,6 +124,7 @@ struct ContentView: View {
         prBoardViewModel = newPRVM
         coordinator = newCoordinator
         actionsViewModel = ActionsViewModel(ghClient: ghClient)
+        insightsViewModel = InsightsViewModel(modelContainer: container)
         startPolling(workspace: ws, interval: TimeInterval(ws.pollingIntervalSeconds))
     }
 

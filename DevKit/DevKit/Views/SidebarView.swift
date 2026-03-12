@@ -20,6 +20,7 @@ struct SidebarView: View {
         case prs = "PRs"
         case actions = "Actions"
         case agents = "Agents"
+        case reports = "Reports"
 
         var id: String { rawValue }
         var icon: String {
@@ -29,6 +30,7 @@ struct SidebarView: View {
             case .prs: return "arrow.triangle.pull"
             case .actions: return "gearshape.2"
             case .agents: return "terminal"
+            case .reports: return "chart.bar.doc.horizontal"
             }
         }
         var shortcutKey: KeyEquivalent {
@@ -38,6 +40,7 @@ struct SidebarView: View {
             case .prs: return "3"
             case .actions: return "4"
             case .agents: return "5"
+            case .reports: return "6"
             }
         }
     }
