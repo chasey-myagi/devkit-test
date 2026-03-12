@@ -26,6 +26,8 @@ final class GitHubMonitor {
     private(set) var lastError: String?
     private(set) var consecutiveFailures = 0
     private var pollTimer: Timer?
+    /// 首次 poll 标志：首次同步时不发通知，避免通知轰炸
+    private var isFirstPoll = true
 
     init(ghClient: GitHubCLIClient, modelContainer: ModelContainer) {
         self.ghClient = ghClient
@@ -149,6 +151,26 @@ final class GitHubMonitor {
         }
 
         try context.save()
+
+        // 首次 poll 跳过通知（避免应用启动时对已有 issue 发一堆通知）
+        if isFirstPoll {
+            isFirstPoll = false
+        } else {
+            for newIssue in changes.newIssues {
+                NotificationService.shared.sendNewIssueNotification(
+                    issueNumber: newIssue.number,
+                    title: newIssue.title
+                )
+            }
+            for statusChange in changes.statusChanges {
+                NotificationService.shared.sendStatusChangeNotification(
+                    issueNumber: statusChange.issueNumber,
+                    oldStatus: statusChange.oldStatus,
+                    newStatus: statusChange.newStatus
+                )
+            }
+        }
+
         lastError = nil
         return changes
     }

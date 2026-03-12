@@ -16,6 +16,9 @@ struct DevKitApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .task {
+                    await NotificationService.shared.requestAuthorization()
+                }
         }
         .modelContainer(modelContainer)
         .commands {
