@@ -153,4 +153,48 @@ final class NotificationService {
             }
         }
     }
+
+    /// Agent 停止运行、需要用户介入时发送通知
+    func sendAgentNeedsInterventionNotification(issueNumber: Int, issueTitle: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "Agent 需要介入"
+        content.body = "Issue #\(issueNumber): \(issueTitle) — Claude Code 已停止，等待你的介入"
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "agent-intervention-\(issueNumber)-\(Date.now.timeIntervalSince1970)",
+            content: content,
+            trigger: nil
+        )
+        Task {
+            do {
+                try await UNUserNotificationCenter.current().add(request)
+            } catch {
+                logger.error("Failed to send agent intervention notification: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Agent 完成任务（可能已创建 PR）时发送通知
+    func sendAgentCompletedNotification(issueNumber: Int, issueTitle: String, prNumber: Int?) {
+        let content = UNMutableNotificationContent()
+        content.title = "Agent 完成任务"
+        content.body = prNumber != nil
+            ? "Issue #\(issueNumber): \(issueTitle) — 已创建 PR #\(prNumber!)"
+            : "Issue #\(issueNumber): \(issueTitle) — 任务已完成"
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "agent-completed-\(issueNumber)-\(Date.now.timeIntervalSince1970)",
+            content: content,
+            trigger: nil
+        )
+        Task {
+            do {
+                try await UNUserNotificationCenter.current().add(request)
+            } catch {
+                logger.error("Failed to send agent completed notification: \(error.localizedDescription)")
+            }
+        }
+    }
 }
