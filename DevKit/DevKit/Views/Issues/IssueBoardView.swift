@@ -59,5 +59,8 @@ struct IssueBoardView: View {
                 ProgressView()
             }
         }
+        .navigationDestination(for: CachedIssue.self) { issue in
+            IssueDetailView(issue: issue, repoFullName: workspace.repoFullName)
+        }
     }
 }

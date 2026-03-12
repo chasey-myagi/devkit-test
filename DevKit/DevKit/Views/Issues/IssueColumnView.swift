@@ -31,8 +31,11 @@ struct IssueColumnView: View {
             ScrollView {
                 LazyVStack(spacing: 8) {
                     ForEach(issues) { issue in
-                        IssueCardView(issue: issue)
-                            .draggable(String(issue.number))
+                        NavigationLink(value: issue) {
+                            IssueCardView(issue: issue)
+                        }
+                        .buttonStyle(.plain)
+                        .draggable(String(issue.number))
                     }
                 }
                 .padding(8)
