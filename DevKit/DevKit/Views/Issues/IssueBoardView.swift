@@ -5,6 +5,7 @@ struct IssueBoardView: View {
     let workspace: Workspace
     @Query private var allIssues: [CachedIssue]
     var viewModel: IssueBoardViewModel?
+    @State private var searchVM = SearchFilterViewModel()
 
     init(workspace: Workspace, viewModel: IssueBoardViewModel? = nil) {
         self.workspace = workspace
@@ -26,25 +27,49 @@ struct IssueBoardView: View {
         allIssues.filter { $0.projectStatus == "Done" }
     }
 
+    /// 从 issue 集合中提取所有唯一的 label
+    private var availableLabels: [String] {
+        Array(Set(allIssues.flatMap(\.labels))).sorted()
+    }
+
+    /// 从 issue 集合中提取所有唯一的 assignee
+    private var availableAssignees: [String] {
+        Array(Set(allIssues.flatMap(\.assignees))).sorted()
+    }
+
+    /// 从 issue 集合中提取所有唯一的 milestone
+    private var availableMilestones: [String] {
+        Array(Set(allIssues.compactMap(\.milestone))).sorted()
+    }
+
     var body: some View {
-        HStack(spacing: DKSpacing.md) {
-            IssueColumnView(title: "To Do", status: "To Do", issues: todoIssues, allIssues: allIssues) { issue, newStatus in
-                Task {
-                    await viewModel?.updateStatus(issue: issue, newStatus: newStatus, workspace: workspace)
+        VStack(spacing: 0) {
+            SearchFilterBar(
+                viewModel: searchVM,
+                availableLabels: availableLabels,
+                availableAssignees: availableAssignees,
+                availableMilestones: availableMilestones
+            )
+
+            HStack(spacing: DKSpacing.md) {
+                IssueColumnView(title: "To Do", status: "To Do", issues: searchVM.filterIssues(todoIssues), allIssues: allIssues) { issue, newStatus in
+                    Task {
+                        await viewModel?.updateStatus(issue: issue, newStatus: newStatus, workspace: workspace)
+                    }
+                }
+                IssueColumnView(title: "In Progress", status: "In Progress", issues: searchVM.filterIssues(inProgressIssues), allIssues: allIssues) { issue, newStatus in
+                    Task {
+                        await viewModel?.updateStatus(issue: issue, newStatus: newStatus, workspace: workspace)
+                    }
+                }
+                IssueColumnView(title: "Done", status: "Done", issues: searchVM.filterIssues(doneIssues), allIssues: allIssues) { issue, newStatus in
+                    Task {
+                        await viewModel?.updateStatus(issue: issue, newStatus: newStatus, workspace: workspace)
+                    }
                 }
             }
-            IssueColumnView(title: "In Progress", status: "In Progress", issues: inProgressIssues, allIssues: allIssues) { issue, newStatus in
-                Task {
-                    await viewModel?.updateStatus(issue: issue, newStatus: newStatus, workspace: workspace)
-                }
-            }
-            IssueColumnView(title: "Done", status: "Done", issues: doneIssues, allIssues: allIssues) { issue, newStatus in
-                Task {
-                    await viewModel?.updateStatus(issue: issue, newStatus: newStatus, workspace: workspace)
-                }
-            }
+            .padding(DKSpacing.lg)
         }
-        .padding(DKSpacing.lg)
         .background(DKColor.Surface.primary)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

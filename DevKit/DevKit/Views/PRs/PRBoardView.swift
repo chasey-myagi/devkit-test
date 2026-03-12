@@ -5,6 +5,7 @@ struct PRBoardView: View {
     let workspace: Workspace
     @Query private var allPRs: [CachedPR]
     var viewModel: PRBoardViewModel?
+    @State private var searchVM = SearchFilterViewModel()
 
     init(workspace: Workspace, viewModel: PRBoardViewModel? = nil) {
         self.workspace = workspace
@@ -30,13 +31,17 @@ struct PRBoardView: View {
     }
 
     var body: some View {
-        HStack(spacing: DKSpacing.md) {
-            PRColumnView(title: "Draft", prs: draftPRs, repoFullName: workspace.repoFullName)
-            PRColumnView(title: "In Review", prs: inReviewPRs, repoFullName: workspace.repoFullName)
-            PRColumnView(title: "Need Fix", prs: needFixPRs, repoFullName: workspace.repoFullName)
-            PRColumnView(title: "Ready", prs: readyPRs, repoFullName: workspace.repoFullName)
+        VStack(spacing: 0) {
+            SearchFilterBar(viewModel: searchVM)
+
+            HStack(spacing: DKSpacing.md) {
+                PRColumnView(title: "Draft", prs: searchVM.filterPRs(draftPRs), repoFullName: workspace.repoFullName)
+                PRColumnView(title: "In Review", prs: searchVM.filterPRs(inReviewPRs), repoFullName: workspace.repoFullName)
+                PRColumnView(title: "Need Fix", prs: searchVM.filterPRs(needFixPRs), repoFullName: workspace.repoFullName)
+                PRColumnView(title: "Ready", prs: searchVM.filterPRs(readyPRs), repoFullName: workspace.repoFullName)
+            }
+            .padding(DKSpacing.lg)
         }
-        .padding(DKSpacing.lg)
         .background(DKColor.Surface.primary)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
