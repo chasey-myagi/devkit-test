@@ -1,5 +1,8 @@
 import Foundation
+import os
 import SwiftData
+
+private let logger = Logger(subsystem: "com.chasey.DevKit", category: "IssueBoardViewModel")
 
 @MainActor
 @Observable
@@ -60,7 +63,7 @@ final class IssueBoardViewModel {
                     repoPath: workspace.localPath,
                     issueNumber: issue.number
                 )
-                print("DevKit: Worktree created at \(path)")
+                logger.info("Worktree created at \(path)")
             } catch {
                 self.error = "Worktree creation failed: \(error.localizedDescription)"
             }
