@@ -12,12 +12,14 @@ struct SidebarView: View {
     }
 
     enum SidebarTab: String, CaseIterable, Identifiable {
+        case overview = "Overview"
         case issues = "Issues"
         case prs = "Pull Requests"
 
         var id: String { rawValue }
         var icon: String {
             switch self {
+            case .overview: return "square.grid.2x2"
             case .issues: return "exclamationmark.circle"
             case .prs: return "arrow.triangle.pull"
             }

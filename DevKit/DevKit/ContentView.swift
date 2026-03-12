@@ -4,7 +4,7 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var workspaces: [Workspace]
-    @State private var selectedTab: SidebarView.SidebarTab = .issues
+    @State private var selectedTab: SidebarView.SidebarTab = .overview
     @State private var selectedWorkspaceName: String?
     private let ghClient = GitHubCLIClient()
     @State private var monitor: GitHubMonitor?
@@ -26,6 +26,8 @@ struct ContentView: View {
             NavigationStack {
                 if let ws = selectedWorkspace {
                     switch selectedTab {
+                    case .overview:
+                        OverviewDashboardView(workspace: ws, onNavigateToBoard: { selectedTab = .issues })
                     case .issues:
                         IssueBoardView(workspace: ws, viewModel: boardViewModel)
                     case .prs:
@@ -44,7 +46,8 @@ struct ContentView: View {
                 }
             }
         }
-        .frame(minWidth: 900, minHeight: 600)
+        .frame(minWidth: 960, minHeight: 640)
+        .background(DKColor.Surface.primary)
         .onChange(of: selectedWorkspaceName) { _, newName in
             setupWorkspace(name: newName)
         }
