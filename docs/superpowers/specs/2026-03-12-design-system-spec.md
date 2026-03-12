@@ -75,7 +75,18 @@ DevKit 是一个 Agent 辅助开发应用，不是传统开发者工具。设计
 | `accent.info` | `#5B7FB5` | `#E3E9F4` | In Progress |
 | `accent.brand` | `#8B6CC1` | `#E8DFF5` | 品牌强调、主按钮 |
 
-深色模式下：语义色饱和度降低 20%，淡底色不透明度从 20% 降至 12%。
+**深色模式语义色完整色板：**
+
+| Token | 色值（深色） | 淡底色（深色，12%） |
+|-------|------------|-------------------|
+| `accent.critical` | `#B86B65` | `#3A2C2A` |
+| `accent.warning` | `#B8934F` | `#3A3328` |
+| `accent.caution` | `#A9A053` | `#35332A` |
+| `accent.positive` | `#6BA87A` | `#2A3530` |
+| `accent.info` | `#6B8DB8` | `#2A3038` |
+| `accent.brand` | `#9A7EC8` | `#302A3A` |
+
+色值计算规则：在 HSB 色彩空间中，饱和度 -20%，亮度不变。淡底色为 accent 色值叠加 12% 不透明度在 `surface.primary` 深色底 `#1C1B19` 上的合成结果。
 
 ### 2.4 渐变（Hero 卡片）
 
@@ -88,7 +99,35 @@ mesh gradient:
   底色: surface.card
 ```
 
-深色模式：各渐变色降饱和 40%、降亮度 60%。
+**深色模式渐变色（HSB 空间降饱和 40%、降亮度 60%）：**
+
+```
+mesh gradient (dark):
+  radial-gradient(at 0% 0%, #3D3548)      // 暗紫
+  radial-gradient(at 100% 0%, #4A3A34)    // 暗桃
+  radial-gradient(at 100% 100%, #4A4530)  // 暗金
+  radial-gradient(at 0% 100%, #3A2E48)    // 暗薰衣草
+  底色: surface.card (#322F2B)
+```
+
+**SwiftUI MeshGradient 实现（macOS 15+）：**
+
+```swift
+// macOS 15+ 使用 MeshGradient
+MeshGradient(
+    width: 3, height: 3,
+    points: [
+        [0, 0], [0.5, 0], [1, 0],
+        [0, 0.5], [0.5, 0.5], [1, 0.5],
+        [0, 1], [0.5, 1], [1, 1]
+    ],
+    colors: [
+        Color(hex: "#E8DFF5"), Color(hex: "#F0E8EA"), Color(hex: "#FCE1D6"),
+        Color(hex: "#E4DDF0"), DKColor.Surface.card, Color(hex: "#F8E8D8"),
+        Color(hex: "#E0C3FC"), Color(hex: "#EEE2E0"), Color(hex: "#FDF2D0")
+    ]
+)
+```
 
 ---
 
@@ -123,6 +162,57 @@ mesh gradient:
 3. **正文行高要松** — `1.5` 行高保证长文可读性
 4. **层级靠字重区分** — body 和 bodyMedium 同字号不同字重，避免字号过多
 5. **Issue 编号用 monospaced** — `#127` 等编号用等宽字体，和正文形成微妙对比
+
+### 3.4 排版 ViewModifier
+
+由于 SwiftUI 的 `Font` 不支持内嵌 tracking 和 lineSpacing，提供统一的 ViewModifier 封装 font + tracking + lineSpacing 组合，避免调用方遗漏：
+
+```swift
+struct DKTextStyle: ViewModifier {
+    let font: Font
+    let tracking: CGFloat
+    let lineSpacing: CGFloat  // 基于字号计算的绝对行距增量
+
+    func body(content: Content) -> some View {
+        content
+            .font(font)
+            .tracking(tracking)
+            .lineSpacing(lineSpacing)
+    }
+}
+
+extension View {
+    func dkTextStyle(_ style: DKTextStyleToken) -> some View {
+        modifier(style.modifier)
+    }
+}
+
+enum DKTextStyleToken {
+    case heroTitle, pageTitle, sectionHeader, cardTitle
+    case body, bodyMedium, caption, captionSmall, issueNumber
+
+    var modifier: DKTextStyle {
+        switch self {
+        case .heroTitle:     DKTextStyle(font: .system(size: 34, design: .serif).weight(.regular), tracking: -0.5, lineSpacing: 34 * 0.1)
+        case .pageTitle:     DKTextStyle(font: .system(size: 22, weight: .semibold), tracking: -0.3, lineSpacing: 22 * 0.2)
+        case .sectionHeader: DKTextStyle(font: .system(size: 13, weight: .semibold), tracking: 1.2, lineSpacing: 13 * 0.3)
+        case .cardTitle:     DKTextStyle(font: .system(size: 17, weight: .medium), tracking: -0.2, lineSpacing: 17 * 0.25)
+        case .body:          DKTextStyle(font: .system(size: 14, weight: .regular), tracking: 0, lineSpacing: 14 * 0.5)
+        case .bodyMedium:    DKTextStyle(font: .system(size: 14, weight: .medium), tracking: 0, lineSpacing: 14 * 0.5)
+        case .caption:       DKTextStyle(font: .system(size: 12, weight: .medium), tracking: 0.2, lineSpacing: 12 * 0.4)
+        case .captionSmall:  DKTextStyle(font: .system(size: 11, weight: .regular), tracking: 0.3, lineSpacing: 11 * 0.4)
+        case .issueNumber:   DKTextStyle(font: .system(size: 13, weight: .medium, design: .monospaced), tracking: 0, lineSpacing: 0)
+        }
+    }
+}
+
+// 使用
+Text("Your Workspace")
+    .dkTextStyle(.sectionHeader)
+    .textCase(.uppercase)  // sectionHeader 专用，需手动附加
+```
+
+> **注意：** `sectionHeader` 样式需额外附加 `.textCase(.uppercase)`，因为 textCase 是视图修饰符而非文本属性，无法封装进 ViewModifier。
 
 ---
 
@@ -307,7 +397,7 @@ Overview 页面按 severity/customer/维度分类的彩色卡片。
 |------|-----|
 | 背景 | 各 `accent.{type}` 的淡底色 |
 | 圆角 | `radius.xl` (28pt) |
-| 高度 | 固定 180pt |
+| 最小高度 | 180pt（使用 `.frame(minHeight: 180)`，辅助功能大字体模式下自动扩展） |
 | 边框 | `surface.secondary` 50% 不透明度 |
 | 底部渐变 | 同色系加深 30%，从底部渐变 40% 高度 |
 | 标题字体 | `type.cardTitle` |
@@ -349,9 +439,22 @@ Overview 中展示最近活动。
 | Icon Circle | `surface.secondary` | `text.secondary` | 圆形 | 40pt |
 
 所有按钮状态：
-- Hover: 背景亮度 +5%
-- Pressed: `scaleEffect(0.96)`, `.easeOut, 0.1s`
+- Hover: 叠加 `Color.white.opacity(0.05)` 覆盖层（浅色模式）或 `Color.white.opacity(0.08)`（深色模式）
+- Pressed: `scaleEffect(0.96)`, `motion.spring.stiff`
+- Focused: 2pt `accent.brand` 50% 不透明度描边（键盘导航聚焦态）
 - Disabled: 40% 不透明度
+
+**推荐使用 `ButtonStyle` 实现按压效果**（比 `onLongPressGesture` hack 更可靠）：
+
+```swift
+struct DKButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .animation(DKMotion.Spring.stiff, value: configuration.isPressed)
+    }
+}
+```
 
 ### 5.7 空状态（Empty State）
 
@@ -397,11 +500,11 @@ Overview 中展示最近活动。
 IssueCardContent()
     .scaleEffect(isHovered ? 1.01 : 1.0)
     .shadow(
-        color: .black.opacity(isHovered ? 0.08 : 0.05),
+        color: Color(red: 0.1, green: 0.1, blue: 0.1).opacity(isHovered ? 0.08 : 0.05),
         radius: isHovered ? 8 : 2,
         y: isHovered ? 2 : 1
     )
-    .animation(DKMotion.ease.hover, value: isHovered)
+    .animation(DKMotion.Ease.hover, value: isHovered)
     .onHover { isHovered = $0 }
 ```
 
@@ -415,7 +518,7 @@ ForEach(Array(issues.enumerated()), id: \.element.id) { index, issue in
             removal: .opacity
         ))
         .animation(
-            DKMotion.ease.appear.delay(min(Double(index) * 0.04, 0.4)),
+            DKMotion.Ease.appear.delay(min(Double(index) * 0.04, 0.4)),
             value: issues.count
         )
 }
@@ -463,7 +566,7 @@ HeroCard()
     .opacity(appeared ? 1 : 0)
     .offset(y: appeared ? 0 : 16)
     .scaleEffect(appeared ? 1 : 0.97)
-    .animation(DKMotion.ease.appear.delay(0.1), value: appeared)
+    .animation(DKMotion.Ease.appear.delay(0.1), value: appeared)
     .onAppear { appeared = true }
 ```
 
@@ -471,15 +574,20 @@ HeroCard()
 
 #### 按钮按压
 
-```swift
-@State private var isPressed = false
+推荐使用 `ButtonStyle`（官方 API），而非 `onLongPressGesture` hack：
 
-Button(action: { /* ... */ }) { /* content */ }
-    .scaleEffect(isPressed ? 0.96 : 1.0)
-    .animation(DKMotion.spring.stiff, value: isPressed)
-    .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
-        isPressed = pressing
-    }, perform: {})
+```swift
+struct DKScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .animation(DKMotion.Spring.stiff, value: configuration.isPressed)
+    }
+}
+
+// 使用
+Button("Action") { /* ... */ }
+    .buttonStyle(DKScaleButtonStyle())
 ```
 
 ### 6.3 动画规则
@@ -495,6 +603,8 @@ Button(action: { /* ... */ }) { /* content */ }
 ## 7. 布局模板
 
 ### 7.1 应用整体结构
+
+**实施注意：** 当前代码使用 `minWidth: 900, minHeight: 600`，需升级为 `960x640` 以适配新增的 Overview 布局。同时需在 `SidebarTab` 枚举中新增 `.overview` case 并设为默认选中。
 
 ```
 ┌─ Window (minWidth: 960, minHeight: 640) ──────────────────────┐
@@ -643,7 +753,8 @@ enum DKColor {
         static let elevated = Color("SurfaceElevated")
     }
 
-    enum Text {
+    /// 命名为 Foreground 而非 Text，避免与 SwiftUI.Text 视图类型混淆
+    enum Foreground {
         static let primary = Color("TextPrimary")
         static let secondary = Color("TextSecondary")
         static let tertiary = Color("TextTertiary")
@@ -676,10 +787,13 @@ enum DKColor {
 
 ### 8.3 字体 Token 实现
 
+提供两种使用方式：简单场景用 `DKTypography` 获取 Font，需要完整排版控制时用 `dkTextStyle()` ViewModifier（见 3.4 节）。
+
 ```swift
 enum DKTypography {
+    /// 34pt serif — Overview hero 标题专用
     static func heroTitle() -> Font {
-        .system(.largeTitle, design: .serif).weight(.regular)
+        .system(size: 34, design: .serif).weight(.regular)
     }
     static func pageTitle() -> Font {
         .system(size: 22, weight: .semibold)
@@ -708,6 +822,8 @@ enum DKTypography {
 }
 ```
 
+> **推荐：** 优先使用 `dkTextStyle()` ViewModifier（见 3.4 节），它会同时应用 font + tracking + lineSpacing，避免遗漏排版参数。`DKTypography` 仅在需要单独获取 Font 值时使用（如传给 `Label` 等不支持 ViewModifier 的场景）。
+
 ### 8.4 间距与圆角 Token 实现
 
 ```swift
@@ -728,6 +844,7 @@ enum DKRadius {
     static let lg: CGFloat = 20
     static let xl: CGFloat = 28
     static let hero: CGFloat = 32
+    // radius.full 使用 SwiftUI 的 Capsule() shape，无需数值常量
 }
 ```
 
@@ -752,16 +869,19 @@ enum DKMotion {
 
 ```swift
 enum DKShadow {
-    struct Value {
+    struct Value: Sendable {
         let color: Color
         let radius: CGFloat
         let y: CGFloat
     }
 
+    /// 暖黑基色 #1A1A1A，与规范 4.3 保持一致
+    private static let warmBlack = Color(red: 0.1, green: 0.1, blue: 0.1)
+
     static let none = Value(color: .clear, radius: 0, y: 0)
-    static let sm = Value(color: .black.opacity(0.05), radius: 2, y: 1)
-    static let md = Value(color: .black.opacity(0.08), radius: 8, y: 2)
-    static let lg = Value(color: .black.opacity(0.12), radius: 16, y: 4)
+    static let sm = Value(color: warmBlack.opacity(0.05), radius: 2, y: 1)
+    static let md = Value(color: warmBlack.opacity(0.08), radius: 8, y: 2)
+    static let lg = Value(color: warmBlack.opacity(0.12), radius: 16, y: 4)
 }
 
 extension View {
@@ -770,6 +890,8 @@ extension View {
     }
 }
 ```
+
+> **深色模式处理：** 阴影在深色背景上需要更高不透明度才能可见。建议通过 `@Environment(\.colorScheme)` 判断，深色模式下各级不透明度 +5%（sm=10%, md=13%, lg=17%）。
 
 ### 8.7 组合示例：Issue 卡片
 
@@ -783,7 +905,7 @@ struct IssueCardView: View {
             HStack {
                 Text("#\(issue.number)")
                     .font(DKTypography.issueNumber())
-                    .foregroundStyle(DKColor.Text.secondary)
+                    .foregroundStyle(DKColor.Foreground.secondary)
                 Spacer()
                 if let severity = issue.severity {
                     severityBadge(severity)
@@ -792,7 +914,7 @@ struct IssueCardView: View {
 
             Text(issue.title)
                 .font(DKTypography.cardTitle())
-                .foregroundStyle(DKColor.Text.primary)
+                .foregroundStyle(DKColor.Foreground.primary)
                 .lineLimit(2)
                 .tracking(-0.2)
 
@@ -800,12 +922,12 @@ struct IssueCardView: View {
                 if let customer = issue.customer {
                     Label(customer, systemImage: "building.2")
                         .font(DKTypography.captionSmall())
-                        .foregroundStyle(DKColor.Text.secondary)
+                        .foregroundStyle(DKColor.Foreground.secondary)
                 }
                 Spacer()
                 Text(issue.updatedAt, style: .relative)
                     .font(DKTypography.captionSmall())
-                    .foregroundStyle(DKColor.Text.tertiary)
+                    .foregroundStyle(DKColor.Foreground.tertiary)
             }
         }
         .padding(DKSpacing.md)
@@ -844,13 +966,13 @@ struct DKSectionHeader: View {
                 if let icon {
                     Image(systemName: icon)
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(DKColor.Text.primary)
+                        .foregroundStyle(DKColor.Foreground.primary)
                 }
                 Text(title)
                     .font(DKTypography.sectionHeader())
                     .tracking(1.2)
                     .textCase(.uppercase)
-                    .foregroundStyle(DKColor.Text.secondary)
+                    .foregroundStyle(DKColor.Foreground.secondary)
             }
             Spacer()
             if let trailing, let action = trailingAction {
@@ -861,7 +983,7 @@ struct DKSectionHeader: View {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 10, weight: .semibold))
                     }
-                    .foregroundStyle(DKColor.Text.tertiary)
+                    .foregroundStyle(DKColor.Foreground.tertiary)
                 }
                 .buttonStyle(.plain)
             }
