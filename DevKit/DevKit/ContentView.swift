@@ -25,18 +25,24 @@ struct ContentView: View {
         } detail: {
             NavigationStack {
                 if let ws = selectedWorkspace {
-                    switch selectedTab {
-                    case .overview:
-                        OverviewDashboardView(workspace: ws, onNavigateToBoard: { selectedTab = .issues })
-                    case .issues:
-                        IssueBoardView(workspace: ws, viewModel: boardViewModel)
-                    case .prs:
-                        PRBoardView(workspace: ws, viewModel: prBoardViewModel)
-                            .task(id: ws.name) {
-                                // I-6: PR 首次切换时自动加载
-                                await prBoardViewModel?.refresh(workspace: ws)
-                            }
+                    Group {
+                        switch selectedTab {
+                        case .overview:
+                            OverviewDashboardView(workspace: ws, onNavigateToBoard: { selectedTab = .issues })
+                                .transition(.opacity.combined(with: .offset(x: -20)))
+                        case .issues:
+                            IssueBoardView(workspace: ws, viewModel: boardViewModel)
+                                .transition(.opacity.combined(with: .offset(x: 20)))
+                        case .prs:
+                            PRBoardView(workspace: ws, viewModel: prBoardViewModel)
+                                .task(id: ws.name) {
+                                    // I-6: PR 首次切换时自动加载
+                                    await prBoardViewModel?.refresh(workspace: ws)
+                                }
+                                .transition(.opacity.combined(with: .offset(x: 20)))
+                        }
                     }
+                    .animation(DKMotion.Spring.default, value: selectedTab)
                 } else {
                     ContentUnavailableView(
                         "No Workspace Selected",

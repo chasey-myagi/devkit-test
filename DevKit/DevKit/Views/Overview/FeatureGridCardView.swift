@@ -34,6 +34,13 @@ struct FeatureGridCardView: View {
         .padding(DKSpacing.lg)
         .frame(minHeight: 180)
         .background(backgroundColor)
+        .overlay(
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.12)],
+                startPoint: .init(x: 0.5, y: 0.6),
+                endPoint: .bottom
+            )
+        )
         .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
         .overlay(
             RoundedRectangle(cornerRadius: DKRadius.xl)

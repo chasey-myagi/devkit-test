@@ -27,11 +27,15 @@ struct HeroCardView: View {
                 Text("\(openCount) open issues,")
                     .dkTextStyle(.heroTitle)
                     .foregroundStyle(DKColor.Foreground.primary)
+                    .contentTransition(.numericText(value: Double(openCount)))
+                    .animation(DKMotion.Spring.default, value: openCount)
                 Text("\(attentionCount) need attention.")
                     .dkTextStyle(.heroTitle)
                     .foregroundStyle(DKColor.Foreground.primary)
                     .italic()
                     .opacity(0.8)
+                    .contentTransition(.numericText(value: Double(attentionCount)))
+                    .animation(DKMotion.Spring.default, value: attentionCount)
             }
 
             Spacer()

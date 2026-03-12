@@ -15,6 +15,8 @@ struct PRColumnView: View {
                 Spacer()
                 Text("\(prs.count)")
                     .font(DKTypography.caption())
+                    .contentTransition(.numericText(value: Double(prs.count)))
+                    .animation(DKMotion.Spring.default, value: prs.count)
                     .padding(.horizontal, DKSpacing.sm)
                     .padding(.vertical, DKSpacing.xxs)
                     .background(DKColor.Surface.tertiary)
