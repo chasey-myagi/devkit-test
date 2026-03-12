@@ -88,3 +88,13 @@ struct DKIconCircleButtonStyle: ButtonStyle {
             .onHover { isHovered = $0 }
     }
 }
+
+struct DKCardPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1.0)
+            .animation(DKMotion.Spring.stiff, value: configuration.isPressed)
+    }
+}

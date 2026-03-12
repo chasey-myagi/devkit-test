@@ -34,7 +34,7 @@ struct PRColumnView: View {
                         NavigationLink(value: pr) {
                             PRCardView(pr: pr)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(DKCardPressStyle())
                     }
                 }
                 .padding(DKSpacing.sm)

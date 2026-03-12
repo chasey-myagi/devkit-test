@@ -37,7 +37,7 @@ struct IssueColumnView: View {
                         NavigationLink(value: issue) {
                             IssueCardView(issue: issue)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(DKCardPressStyle())
                         .draggable(String(issue.number))
                     }
                 }
