@@ -66,6 +66,73 @@ final class NotificationService {
         }
     }
 
+    /// PR CI 检查失败时发送通知
+    func sendCIFailureNotification(prNumber: Int, title: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "CI Failed"
+        content.body = "PR #\(prNumber): \(title)"
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "ci-failure-\(prNumber)-\(Date.now.timeIntervalSince1970)",
+            content: content,
+            trigger: nil
+        )
+        Task {
+            do {
+                try await UNUserNotificationCenter.current().add(request)
+            } catch {
+                logger.error("Failed to deliver CI failure notification #\(prNumber): \(error)")
+            }
+        }
+    }
+
+    /// PR 有新的 review comment 时发送通知
+    func sendNewReviewNotification(prNumber: Int, title: String, reviewCount: Int) {
+        let content = UNMutableNotificationContent()
+        content.title = "New Review"
+        content.body = "PR #\(prNumber): \(title) (\(reviewCount) reviews)"
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "new-review-\(prNumber)-\(Date.now.timeIntervalSince1970)",
+            content: content,
+            trigger: nil
+        )
+        Task {
+            do {
+                try await UNUserNotificationCenter.current().add(request)
+            } catch {
+                logger.error("Failed to deliver new review notification #\(prNumber): \(error)")
+            }
+        }
+    }
+
+    /// GitHub API rate limit 时发送通知
+    func sendRateLimitNotification(resumeAt: Date) {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        let timeString = formatter.string(from: resumeAt)
+
+        let content = UNMutableNotificationContent()
+        content.title = "GitHub Rate Limited"
+        content.body = "API 请求已被限制，将在 \(timeString) 恢复轮询"
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "rate-limit-\(Date.now.timeIntervalSince1970)",
+            content: content,
+            trigger: nil
+        )
+        Task {
+            do {
+                try await UNUserNotificationCenter.current().add(request)
+            } catch {
+                logger.error("Failed to deliver rate limit notification: \(error)")
+            }
+        }
+    }
+
     /// 连续轮询失败时发送通知
     func sendConsecutiveFailureNotification(failures: Int) {
         let content = UNMutableNotificationContent()

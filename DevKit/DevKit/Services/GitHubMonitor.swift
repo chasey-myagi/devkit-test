@@ -25,6 +25,8 @@ final class GitHubMonitor {
     private(set) var lastPollDate: Date?
     private(set) var lastError: String?
     private(set) var consecutiveFailures = 0
+    /// Rate limit 冷却截止时间，非 nil 表示正在冷却中
+    private(set) var rateLimitedUntil: Date?
     private var pollTimer: Timer?
     /// 首次 poll 标志：首次同步时不发通知，避免通知轰炸
     private var isFirstPoll = true
@@ -70,6 +72,14 @@ final class GitHubMonitor {
         workspaceName: String,
         statusResolver: StatusResolver? = nil
     ) async throws -> PollChanges {
+        // Rate limit 冷却期内跳过轮询
+        if let rateLimitedUntil, Date.now < rateLimitedUntil {
+            throw ProcessRunnerError.executionFailed(
+                terminationStatus: 1,
+                stderr: "Rate limited until \(rateLimitedUntil)"
+            )
+        }
+
         isPolling = true
         defer {
             isPolling = false
@@ -84,7 +94,18 @@ final class GitHubMonitor {
         do {
             remoteIssues = try await ghClient.fetchAssignedIssues(repo: repo)
             consecutiveFailures = 0
+            // 成功请求后清除 rate limit 状态
+            rateLimitedUntil = nil
         } catch {
+            // 检测 rate limit 错误
+            if let runnerError = error as? ProcessRunnerError, runnerError.isRateLimited {
+                let resumeAt = Date.now.addingTimeInterval(900) // 15 分钟
+                rateLimitedUntil = resumeAt
+                lastError = "Rate limited until \(resumeAt)"
+                NotificationService.shared.sendRateLimitNotification(resumeAt: resumeAt)
+                throw error
+            }
+
             consecutiveFailures += 1
             lastError = error.localizedDescription
             // I-2: 连续 3 次失败发通知

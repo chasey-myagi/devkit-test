@@ -15,4 +15,17 @@ struct NotificationServiceTests {
             issueNumber: 123, oldStatus: "To Do", newStatus: "In Progress"
         )
     }
+
+    @Test @MainActor func sendCIFailureNotificationDoesNotCrash() {
+        NotificationService.shared.sendCIFailureNotification(prNumber: 42, title: "Fix bug")
+    }
+
+    @Test @MainActor func sendNewReviewNotificationDoesNotCrash() {
+        NotificationService.shared.sendNewReviewNotification(prNumber: 42, title: "Feature PR", reviewCount: 3)
+    }
+
+    @Test @MainActor func sendRateLimitNotificationDoesNotCrash() {
+        let resumeAt = Date.now.addingTimeInterval(900)
+        NotificationService.shared.sendRateLimitNotification(resumeAt: resumeAt)
+    }
 }

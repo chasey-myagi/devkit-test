@@ -127,6 +127,11 @@ struct GHPullRequest: Codable, Sendable {
         return "PENDING"
     }
 
+    /// Review 数量
+    var reviewCount: Int {
+        reviews.count
+    }
+
     /// 综合 CI 状态
     var aggregatedChecksStatus: String {
         if statusCheckRollup.isEmpty { return "PENDING" }
