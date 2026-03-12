@@ -10,26 +10,25 @@ struct IssueColumnView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Column header
             HStack {
                 Text(title)
-                    .font(.headline)
+                    .font(DKTypography.bodyMedium())
+                    .foregroundStyle(DKColor.Foreground.primary)
                 Spacer()
                 Text("\(issues.count)")
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(.quaternary)
+                    .font(DKTypography.caption())
+                    .padding(.horizontal, DKSpacing.sm)
+                    .padding(.vertical, DKSpacing.xxs)
+                    .background(DKColor.Surface.tertiary)
                     .clipShape(Capsule())
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, DKSpacing.md)
+            .padding(.vertical, DKSpacing.sm)
 
             Divider()
 
-            // Cards
             ScrollView {
-                LazyVStack(spacing: 8) {
+                LazyVStack(spacing: DKSpacing.sm) {
                     ForEach(issues) { issue in
                         NavigationLink(value: issue) {
                             IssueCardView(issue: issue)
@@ -38,11 +37,11 @@ struct IssueColumnView: View {
                         .draggable(String(issue.number))
                     }
                 }
-                .padding(8)
+                .padding(DKSpacing.sm)
             }
         }
-        .background(.background.secondary)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .background(DKColor.Surface.secondary)
+        .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
         .dropDestination(for: String.self) { items, _ in
             guard let numberStr = items.first,
                   let number = Int(numberStr),

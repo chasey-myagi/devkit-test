@@ -27,7 +27,7 @@ struct IssueBoardView: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DKSpacing.md) {
             IssueColumnView(title: "To Do", status: "To Do", issues: todoIssues, allIssues: allIssues) { issue, newStatus in
                 Task {
                     await viewModel?.updateStatus(issue: issue, newStatus: newStatus, workspace: workspace)
@@ -44,7 +44,8 @@ struct IssueBoardView: View {
                 }
             }
         }
-        .padding()
+        .padding(DKSpacing.lg)
+        .background(DKColor.Surface.primary)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
