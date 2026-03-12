@@ -255,6 +255,108 @@ final class GitHubCLIClient: Sendable {
         return try await processRunner.run("gh", arguments: args)
     }
 
+    // MARK: - Issue Create/Edit
+
+    /// 创建新 Issue
+    func createIssue(
+        repo: String,
+        title: String,
+        body: String,
+        labels: [String] = [],
+        assignees: [String] = [],
+        milestone: String? = nil
+    ) async throws -> GHCreateIssueResult {
+        var args = [
+            "issue", "create",
+            "--repo", repo,
+            "--title", title,
+            "--body", body,
+            "--json", "number,url"
+        ]
+        for label in labels {
+            args += ["--label", label]
+        }
+        for assignee in assignees {
+            args += ["--assignee", assignee]
+        }
+        if let milestone {
+            args += ["--milestone", milestone]
+        }
+        let output = try await processRunner.run("gh", arguments: args)
+        return try JSONDecoder.ghDecoder.decode(GHCreateIssueResult.self, from: Data(output.utf8))
+    }
+
+    /// 编辑已有 Issue
+    func editIssue(
+        repo: String,
+        number: Int,
+        title: String? = nil,
+        body: String? = nil,
+        addLabels: [String] = [],
+        removeLabels: [String] = []
+    ) async throws {
+        var args = [
+            "issue", "edit", String(number),
+            "--repo", repo
+        ]
+        if let title {
+            args += ["--title", title]
+        }
+        if let body {
+            args += ["--body", body]
+        }
+        if !addLabels.isEmpty {
+            args += ["--add-label", addLabels.joined(separator: ",")]
+        }
+        if !removeLabels.isEmpty {
+            args += ["--remove-label", removeLabels.joined(separator: ",")]
+        }
+        _ = try await processRunner.run("gh", arguments: args)
+    }
+
+    /// 获取仓库标签列表
+    func fetchRepoLabels(repo: String) async throws -> [GHLabelInfo] {
+        let output = try await processRunner.run("gh", arguments: [
+            "label", "list",
+            "--repo", repo,
+            "--json", "name,color",
+            "--limit", "100"
+        ])
+        guard !output.isEmpty else { return [] }
+        return try JSONDecoder.ghDecoder.decode([GHLabelInfo].self, from: Data(output.utf8))
+    }
+
+    /// 获取仓库里程碑列表
+    func fetchRepoMilestones(repo: String) async throws -> [GHMilestoneInfo] {
+        let (owner, name) = try splitRepo(repo)
+        let output = try await processRunner.run("gh", arguments: [
+            "api", "repos/\(owner)/\(name)/milestones",
+            "--jq", "[.[] | {number: .number, title: .title}]"
+        ])
+        guard !output.isEmpty else { return [] }
+        return try JSONDecoder.ghDecoder.decode([GHMilestoneInfo].self, from: Data(output.utf8))
+    }
+
+    // MARK: - Comments
+
+    /// 为 Issue 添加评论
+    func addIssueComment(repo: String, number: Int, body: String) async throws {
+        _ = try await processRunner.run("gh", arguments: [
+            "issue", "comment", String(number),
+            "--repo", repo,
+            "--body", body
+        ])
+    }
+
+    /// 为 PR 添加评论
+    func addPRComment(repo: String, number: Int, body: String) async throws {
+        _ = try await processRunner.run("gh", arguments: [
+            "pr", "comment", String(number),
+            "--repo", repo,
+            "--body", body
+        ])
+    }
+
     // MARK: - Private
 
     private func splitRepo(_ repo: String) throws -> (owner: String, name: String) {

@@ -7,6 +7,8 @@ final class PRDetailViewModel {
     private(set) var comments: [GHComment] = []
     private(set) var isLoadingComments = false
     private(set) var loadError: String?
+    private(set) var isPostingComment = false
+    var newCommentText: String = ""
 
     // Merge state
     private(set) var mergeability: PRMergeability?
@@ -17,6 +19,21 @@ final class PRDetailViewModel {
 
     init(ghClient: GitHubCLIClient = GitHubCLIClient()) {
         self.ghClient = ghClient
+    }
+
+    /// 发布 PR 评论
+    func postComment(repo: String, prNumber: Int) async {
+        let body = newCommentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !body.isEmpty else { return }
+        isPostingComment = true
+        defer { isPostingComment = false }
+        do {
+            try await ghClient.addPRComment(repo: repo, number: prNumber, body: body)
+            newCommentText = ""
+            await loadComments(repo: repo, prNumber: prNumber)
+        } catch {
+            loadError = error.localizedDescription
+        }
     }
 
     func loadComments(repo: String, prNumber: Int) async {

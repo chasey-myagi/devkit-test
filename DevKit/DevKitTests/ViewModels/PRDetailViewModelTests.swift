@@ -112,4 +112,46 @@ struct PRDetailViewModelTests {
         #expect(vm.comments[0].body == "LGTM")
         #expect(vm.loadError == nil)
     }
+
+    @Test @MainActor func postCommentSuccess() async throws {
+        let mock = MockProcessRunner()
+        // Stub 用于 addPRComment 和后续 loadComments
+        mock.stubSuccess(for: "gh", output: "")
+        let client = GitHubCLIClient(processRunner: mock)
+        let vm = PRDetailViewModel(ghClient: client)
+        vm.newCommentText = "Great work!"
+
+        await vm.postComment(repo: "owner/repo", prNumber: 5)
+
+        // 评论提交成功后文本应被清空
+        #expect(vm.newCommentText == "")
+        #expect(vm.isPostingComment == false)
+        // 应至少调用 comment 和 view 两次 gh 命令
+        let commentCmds = mock.recordedCommands.filter { $0.arguments.contains("comment") }
+        #expect(commentCmds.count >= 1)
+    }
+
+    @Test @MainActor func postCommentEmptyTextDoesNothing() async throws {
+        let mock = MockProcessRunner()
+        let client = GitHubCLIClient(processRunner: mock)
+        let vm = PRDetailViewModel(ghClient: client)
+        vm.newCommentText = "   "
+
+        await vm.postComment(repo: "owner/repo", prNumber: 1)
+
+        #expect(mock.recordedCommands.isEmpty)
+    }
+
+    @Test @MainActor func postCommentFailureSetsError() async throws {
+        let mock = MockProcessRunner()
+        mock.stubFailure(for: "gh", error: ProcessRunnerError.executionFailed(terminationStatus: 1, stderr: "API error"))
+        let client = GitHubCLIClient(processRunner: mock)
+        let vm = PRDetailViewModel(ghClient: client)
+        vm.newCommentText = "Comment"
+
+        await vm.postComment(repo: "owner/repo", prNumber: 1)
+
+        #expect(vm.loadError != nil)
+        #expect(vm.isPostingComment == false)
+    }
 }

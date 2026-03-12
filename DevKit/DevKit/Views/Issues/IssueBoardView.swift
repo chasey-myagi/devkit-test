@@ -5,7 +5,9 @@ struct IssueBoardView: View {
     let workspace: Workspace
     @Query private var allIssues: [CachedIssue]
     var viewModel: IssueBoardViewModel?
+    var ghClient: GitHubCLIClient = GitHubCLIClient()
     @State private var searchVM = SearchFilterViewModel()
+    @State private var showCreateIssueSheet = false
 
     init(workspace: Workspace, viewModel: IssueBoardViewModel? = nil) {
         self.workspace = workspace
@@ -73,11 +75,28 @@ struct IssueBoardView: View {
         .background(DKColor.Surface.primary)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    Task { await viewModel?.refresh(workspace: workspace) }
-                } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
+                HStack(spacing: DKSpacing.sm) {
+                    Button {
+                        showCreateIssueSheet = true
+                    } label: {
+                        Label("New Issue", systemImage: "plus")
+                    }
+                    Button {
+                        Task { await viewModel?.refresh(workspace: workspace) }
+                    } label: {
+                        Label("Refresh", systemImage: "arrow.clockwise")
+                    }
                 }
+            }
+        }
+        .sheet(isPresented: $showCreateIssueSheet) {
+            IssueFormView(
+                viewModel: IssueFormViewModel(),
+                repoFullName: workspace.repoFullName,
+                ghClient: ghClient
+            ) {
+                // 创建成功后刷新
+                Task { await viewModel?.refresh(workspace: workspace) }
             }
         }
         .overlay {
@@ -97,7 +116,7 @@ struct IssueBoardView: View {
             }
         }
         .navigationDestination(for: CachedIssue.self) { issue in
-            IssueDetailView(issue: issue, repoFullName: workspace.repoFullName, localPath: workspace.localPath)
+            IssueDetailView(issue: issue, repoFullName: workspace.repoFullName, localPath: workspace.localPath, ghClient: ghClient)
         }
     }
 }

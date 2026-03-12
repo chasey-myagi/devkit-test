@@ -4,7 +4,9 @@ struct IssueDetailView: View {
     let issue: CachedIssue
     let repoFullName: String
     let localPath: String
+    var ghClient: GitHubCLIClient = GitHubCLIClient()
     @State private var viewModel = IssueDetailViewModel()
+    @State private var showEditSheet = false
 
     var body: some View {
         ScrollView {
@@ -16,6 +18,13 @@ struct IssueDetailView: View {
                             .font(DKTypography.pageTitle())
                             .foregroundStyle(DKColor.Foreground.secondary)
                         statusBadge
+                        Spacer()
+                        Button {
+                            showEditSheet = true
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                        .buttonStyle(DKSecondaryButtonStyle())
                     }
                     Text(issue.title)
                         .dkTextStyle(.pageTitle)
@@ -128,45 +137,21 @@ struct IssueDetailView: View {
                 // Comments card
                 VStack(alignment: .leading, spacing: DKSpacing.sm) {
                     DKSectionHeader(title: "Comments (\(viewModel.comments.count))", icon: "text.bubble")
-                    VStack(alignment: .leading, spacing: 0) {
-                        if viewModel.isLoadingComments {
-                            ProgressView()
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .padding(DKSpacing.xl)
-                        } else if viewModel.comments.isEmpty {
-                            Text("No comments")
-                                .font(DKTypography.body())
-                                .foregroundStyle(DKColor.Foreground.secondary)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .padding(DKSpacing.xl)
-                        } else {
-                            let lastID = viewModel.comments.last?.id
-                            ForEach(viewModel.comments) { comment in
-                                VStack(alignment: .leading, spacing: DKSpacing.xs) {
-                                    HStack {
-                                        Text(comment.author.login)
-                                            .font(DKTypography.caption())
-                                            .fontWeight(.semibold)
-                                            .foregroundStyle(DKColor.Foreground.primary)
-                                        Spacer()
-                                        if let date = comment.createdDate {
-                                            Text(date, style: .relative)
-                                                .font(DKTypography.captionSmall())
-                                                .foregroundStyle(DKColor.Foreground.tertiary)
-                                        } else {
-                                            Text(comment.createdAt)
-                                                .font(DKTypography.captionSmall())
-                                                .foregroundStyle(DKColor.Foreground.tertiary)
-                                        }
-                                    }
-                                    Text(comment.body)
-                                        .font(DKTypography.body())
-                                        .foregroundStyle(DKColor.Foreground.primary)
-                                }
-                                .padding(.vertical, DKSpacing.sm)
-                                if comment.id != lastID {
-                                    Divider()
-                                }
+                    VStack(alignment: .leading, spacing: DKSpacing.md) {
+                        CommentListView(
+                            comments: viewModel.comments,
+                            isLoading: viewModel.isLoadingComments
+                        )
+
+                        Divider()
+
+                        // 评论输入
+                        CommentInputView(
+                            text: $viewModel.newCommentText,
+                            isPosting: viewModel.isPostingComment
+                        ) {
+                            Task {
+                                await viewModel.postComment(repo: repoFullName, issueNumber: issue.number)
                             }
                         }
                     }
@@ -180,6 +165,13 @@ struct IssueDetailView: View {
         }
         .background(DKColor.Surface.primary)
         .navigationTitle("#\(issue.number)")
+        .sheet(isPresented: $showEditSheet) {
+            IssueFormView(
+                viewModel: IssueFormViewModel(issue: issue),
+                repoFullName: repoFullName,
+                ghClient: ghClient
+            )
+        }
         .task {
             await viewModel.loadComments(repo: repoFullName, issueNumber: issue.number)
         }

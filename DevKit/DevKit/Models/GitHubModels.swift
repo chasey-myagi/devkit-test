@@ -89,6 +89,25 @@ struct GHGraphQLProjectLookupResponse: Codable, Sendable {
     struct Option: Codable, Sendable { var id: String; var name: String }
 }
 
+// MARK: - Issue Create/Edit Models
+
+struct GHCreateIssueResult: Decodable, Sendable {
+    let number: Int
+    let url: String
+}
+
+struct GHLabelInfo: Decodable, Sendable, Identifiable {
+    let name: String
+    let color: String
+    var id: String { name }
+}
+
+struct GHMilestoneInfo: Decodable, Sendable, Identifiable {
+    let number: Int
+    let title: String
+    var id: Int { number }
+}
+
 // MARK: - Pull Request Models
 
 struct GHPullRequest: Codable, Sendable {

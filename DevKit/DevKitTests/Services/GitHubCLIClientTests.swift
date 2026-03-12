@@ -171,6 +171,144 @@ struct GitHubCLIClientTests {
         #expect(cmd?.arguments.contains("--failed") == false)
     }
 
+    // MARK: - Issue Create/Edit
+
+    @Test func createsIssue() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: """
+        {"number": 42, "url": "https://github.com/owner/repo/issues/42"}
+        """)
+        let client = GitHubCLIClient(processRunner: mock)
+        let result = try await client.createIssue(
+            repo: "owner/repo",
+            title: "New Bug",
+            body: "Description here",
+            labels: ["bug", "urgent"],
+            assignees: ["alice"]
+        )
+        #expect(result.number == 42)
+        #expect(result.url == "https://github.com/owner/repo/issues/42")
+        let cmd = mock.recordedCommands.first
+        #expect(cmd?.arguments.contains("create") == true)
+        #expect(cmd?.arguments.contains("--title") == true)
+        #expect(cmd?.arguments.contains("New Bug") == true)
+        #expect(cmd?.arguments.contains("--label") == true)
+        #expect(cmd?.arguments.contains("bug") == true)
+        #expect(cmd?.arguments.contains("urgent") == true)
+        #expect(cmd?.arguments.contains("--assignee") == true)
+        #expect(cmd?.arguments.contains("alice") == true)
+    }
+
+    @Test func createsIssueWithMilestone() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: """
+        {"number": 10, "url": "https://github.com/o/r/issues/10"}
+        """)
+        let client = GitHubCLIClient(processRunner: mock)
+        let result = try await client.createIssue(
+            repo: "o/r",
+            title: "Feature",
+            body: "",
+            milestone: "v2.0"
+        )
+        #expect(result.number == 10)
+        let cmd = mock.recordedCommands.first
+        #expect(cmd?.arguments.contains("--milestone") == true)
+        #expect(cmd?.arguments.contains("v2.0") == true)
+    }
+
+    @Test func editsIssue() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: "")
+        let client = GitHubCLIClient(processRunner: mock)
+        try await client.editIssue(
+            repo: "owner/repo",
+            number: 5,
+            title: "Updated Title",
+            body: "Updated body",
+            addLabels: ["enhancement"],
+            removeLabels: ["bug"]
+        )
+        let cmd = mock.recordedCommands.first
+        #expect(cmd?.arguments.contains("edit") == true)
+        #expect(cmd?.arguments.contains("5") == true)
+        #expect(cmd?.arguments.contains("--title") == true)
+        #expect(cmd?.arguments.contains("Updated Title") == true)
+        #expect(cmd?.arguments.contains("--add-label") == true)
+        #expect(cmd?.arguments.contains("enhancement") == true)
+        #expect(cmd?.arguments.contains("--remove-label") == true)
+        #expect(cmd?.arguments.contains("bug") == true)
+    }
+
+    @Test func fetchesRepoLabels() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: """
+        [{"name":"bug","color":"d73a4a"},{"name":"enhancement","color":"a2eeef"}]
+        """)
+        let client = GitHubCLIClient(processRunner: mock)
+        let labels = try await client.fetchRepoLabels(repo: "o/r")
+        #expect(labels.count == 2)
+        #expect(labels[0].name == "bug")
+        #expect(labels[0].color == "d73a4a")
+        #expect(labels[1].name == "enhancement")
+    }
+
+    @Test func fetchesRepoLabelsEmpty() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: "")
+        let client = GitHubCLIClient(processRunner: mock)
+        let labels = try await client.fetchRepoLabels(repo: "o/r")
+        #expect(labels.isEmpty)
+    }
+
+    @Test func fetchesRepoMilestones() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: """
+        [{"number":1,"title":"v1.0"},{"number":2,"title":"v2.0"}]
+        """)
+        let client = GitHubCLIClient(processRunner: mock)
+        let milestones = try await client.fetchRepoMilestones(repo: "owner/repo")
+        #expect(milestones.count == 2)
+        #expect(milestones[0].number == 1)
+        #expect(milestones[0].title == "v1.0")
+        #expect(milestones[1].title == "v2.0")
+    }
+
+    @Test func fetchesRepoMilestonesEmpty() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: "")
+        let client = GitHubCLIClient(processRunner: mock)
+        let milestones = try await client.fetchRepoMilestones(repo: "owner/repo")
+        #expect(milestones.isEmpty)
+    }
+
+    // MARK: - Comments
+
+    @Test func addsIssueComment() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: "")
+        let client = GitHubCLIClient(processRunner: mock)
+        try await client.addIssueComment(repo: "o/r", number: 7, body: "LGTM!")
+        let cmd = mock.recordedCommands.first
+        #expect(cmd?.arguments.contains("comment") == true)
+        #expect(cmd?.arguments.contains("7") == true)
+        #expect(cmd?.arguments.contains("--body") == true)
+        #expect(cmd?.arguments.contains("LGTM!") == true)
+    }
+
+    @Test func addsPRComment() async throws {
+        let mock = MockProcessRunner()
+        mock.stubSuccess(for: "gh", output: "")
+        let client = GitHubCLIClient(processRunner: mock)
+        try await client.addPRComment(repo: "o/r", number: 3, body: "Needs changes")
+        let cmd = mock.recordedCommands.first
+        #expect(cmd?.arguments.contains("pr") == true)
+        #expect(cmd?.arguments.contains("comment") == true)
+        #expect(cmd?.arguments.contains("3") == true)
+        #expect(cmd?.arguments.contains("--body") == true)
+        #expect(cmd?.arguments.contains("Needs changes") == true)
+    }
+
     @Test func workflowRunStatusIcons() {
         // 测试各状态的图标映射
         let successRun = GHWorkflowRun(databaseId: 1, displayTitle: "CI", name: "build", headBranch: "main", status: "completed", conclusion: "success", event: "push", createdAt: "", updatedAt: "", url: "")
