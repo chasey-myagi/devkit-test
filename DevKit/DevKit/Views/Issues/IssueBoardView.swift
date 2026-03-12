@@ -82,7 +82,18 @@ struct IssueBoardView: View {
         }
         .overlay {
             if viewModel?.isLoading == true {
-                ProgressView()
+                ZStack {
+                    Color.black.opacity(0.05)
+                    VStack(spacing: DKSpacing.sm) {
+                        ProgressView()
+                        Text("Refreshing issues...")
+                            .font(DKTypography.caption())
+                            .foregroundStyle(DKColor.Foreground.secondary)
+                    }
+                    .padding(DKSpacing.lg)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: DKRadius.md))
+                }
             }
         }
         .navigationDestination(for: CachedIssue.self) { issue in
