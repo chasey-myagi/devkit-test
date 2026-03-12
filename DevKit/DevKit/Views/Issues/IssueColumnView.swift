@@ -8,6 +8,8 @@ struct IssueColumnView: View {
     let allIssues: [CachedIssue]
     let onStatusChange: (CachedIssue, String) -> Void
 
+    @State private var isDropTargeted = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
@@ -17,6 +19,8 @@ struct IssueColumnView: View {
                 Spacer()
                 Text("\(issues.count)")
                     .font(DKTypography.caption())
+                    .contentTransition(.numericText(value: Double(issues.count)))
+                    .animation(DKMotion.Spring.default, value: issues.count)
                     .padding(.horizontal, DKSpacing.sm)
                     .padding(.vertical, DKSpacing.xxs)
                     .background(DKColor.Surface.tertiary)
@@ -40,8 +44,14 @@ struct IssueColumnView: View {
                 .padding(DKSpacing.sm)
             }
         }
-        .background(DKColor.Surface.secondary)
+        .background(isDropTargeted ? DKColor.Surface.tertiary : DKColor.Surface.secondary)
         .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
+        .overlay(
+            RoundedRectangle(cornerRadius: DKRadius.xl)
+                .stroke(DKColor.Accent.brand.opacity(0.5), lineWidth: 2)
+                .opacity(isDropTargeted ? 1 : 0)
+        )
+        .animation(DKMotion.Ease.appear, value: isDropTargeted)
         .dropDestination(for: String.self) { items, _ in
             guard let numberStr = items.first,
                   let number = Int(numberStr),
@@ -49,6 +59,8 @@ struct IssueColumnView: View {
             else { return false }
             onStatusChange(issue, status)
             return true
+        } isTargeted: { targeted in
+            isDropTargeted = targeted
         }
     }
 }
