@@ -1,15 +1,19 @@
 import SwiftUI
 
 struct WelcomeView: View {
-    var onOpenSettings: () -> Void
+    var onAddWorkspace: (String, String, String) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
+    @State private var showForm = false
+    @State private var name = ""
+    @State private var repo = ""
+    @State private var localPath = ""
+    @State private var addError: String?
 
     var body: some View {
         ZStack {
-            // Full background mesh gradient
             meshGradient
                 .ignoresSafeArea()
 
@@ -38,23 +42,31 @@ struct WelcomeView: View {
                 }
                 .multilineTextAlignment(.center)
 
-                // Setup steps
-                VStack(spacing: DKSpacing.md) {
-                    setupStep(title: "Add a Workspace", description: "Connect your GitHub repository", icon: "folder.badge.plus")
-                    setupStep(title: "Authenticate GitHub", description: "Run gh auth login in Terminal", icon: "person.badge.key")
-                    setupStep(title: "Start Tracking", description: "Issues and PRs sync automatically", icon: "arrow.triangle.2.circlepath")
-                }
-                .padding(.horizontal, DKSpacing.xxxl)
-                .frame(maxWidth: 420)
+                if showForm {
+                    // Inline workspace creation form
+                    addWorkspaceForm
+                        .transition(.opacity.combined(with: .offset(y: 12)))
+                } else {
+                    // Setup steps + CTA
+                    VStack(spacing: DKSpacing.md) {
+                        setupStep(title: "Add a Workspace", description: "Connect your GitHub repository", icon: "folder.badge.plus")
+                        setupStep(title: "Authenticate GitHub", description: "Run gh auth login in Terminal", icon: "person.badge.key")
+                        setupStep(title: "Start Tracking", description: "Issues and PRs sync automatically", icon: "arrow.triangle.2.circlepath")
+                    }
+                    .padding(.horizontal, DKSpacing.xxxl)
+                    .frame(maxWidth: 420)
+                    .transition(.opacity.combined(with: .offset(y: -12)))
 
-                // CTA
-                Button {
-                    onOpenSettings()
-                } label: {
-                    Label("Open Settings", systemImage: "gearshape")
+                    Button {
+                        withAnimation(DKMotion.Spring.default) {
+                            showForm = true
+                        }
+                    } label: {
+                        Label("Add Workspace", systemImage: "plus")
+                    }
+                    .buttonStyle(DKPrimaryButtonStyle())
+                    .padding(.top, DKSpacing.sm)
                 }
-                .buttonStyle(DKPrimaryButtonStyle())
-                .padding(.top, DKSpacing.sm)
 
                 Spacer()
                 Spacer()
@@ -65,6 +77,85 @@ struct WelcomeView: View {
         }
         .onAppear { appeared = true }
     }
+
+    // MARK: - Inline Add Workspace Form
+
+    private var addWorkspaceForm: some View {
+        VStack(spacing: DKSpacing.md) {
+            VStack(alignment: .leading, spacing: DKSpacing.sm) {
+                Text("ADD YOUR FIRST WORKSPACE")
+                    .font(DKTypography.captionSmall())
+                    .tracking(1.0)
+                    .foregroundStyle(DKColor.Foreground.tertiary)
+
+                formField("Workspace Name", text: $name, prompt: "my-project")
+                formField("GitHub Repo", text: $repo, prompt: "owner/repo-name")
+
+                HStack(spacing: DKSpacing.sm) {
+                    formField("Local Path", text: $localPath, prompt: "/Users/you/projects/repo")
+                    Button("Browse...") {
+                        let panel = NSOpenPanel()
+                        panel.canChooseDirectories = true
+                        panel.canChooseFiles = false
+                        if panel.runModal() == .OK, let url = panel.url {
+                            localPath = url.path
+                        }
+                    }
+                    .buttonStyle(DKSecondaryButtonStyle())
+                }
+            }
+
+            if let addError {
+                Text(addError)
+                    .font(DKTypography.caption())
+                    .foregroundStyle(DKColor.Accent.critical)
+            }
+
+            HStack(spacing: DKSpacing.md) {
+                Button {
+                    withAnimation(DKMotion.Spring.default) {
+                        showForm = false
+                        addError = nil
+                    }
+                } label: {
+                    Text("Back")
+                }
+                .buttonStyle(DKGhostButtonStyle())
+
+                Button {
+                    guard !name.isEmpty, !repo.isEmpty, !localPath.isEmpty else {
+                        addError = "All fields are required."
+                        return
+                    }
+                    onAddWorkspace(name, repo, localPath)
+                } label: {
+                    Label("Create Workspace", systemImage: "checkmark")
+                }
+                .buttonStyle(DKPrimaryButtonStyle())
+                .disabled(name.isEmpty || repo.isEmpty || localPath.isEmpty)
+            }
+        }
+        .padding(DKSpacing.xl)
+        .frame(maxWidth: 440)
+        .background(DKColor.Surface.card.opacity(0.85))
+        .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
+    }
+
+    private func formField(_ label: String, text: Binding<String>, prompt: String) -> some View {
+        VStack(alignment: .leading, spacing: DKSpacing.xxs) {
+            Text(label)
+                .font(DKTypography.caption())
+                .foregroundStyle(DKColor.Foreground.secondary)
+            TextField(prompt, text: text)
+                .textFieldStyle(.plain)
+                .font(DKTypography.body())
+                .padding(DKSpacing.sm)
+                .background(DKColor.Surface.tertiary.opacity(0.6))
+                .clipShape(RoundedRectangle(cornerRadius: DKRadius.sm))
+        }
+    }
+
+    // MARK: - Setup Steps
 
     private func setupStep(title: String, description: String, icon: String) -> some View {
         HStack(spacing: DKSpacing.lg) {
@@ -90,6 +181,8 @@ struct WelcomeView: View {
         .background(DKColor.Surface.card.opacity(0.7))
         .clipShape(RoundedRectangle(cornerRadius: DKRadius.lg))
     }
+
+    // MARK: - Background
 
     @ViewBuilder
     private var meshGradient: some View {

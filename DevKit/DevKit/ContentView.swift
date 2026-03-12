@@ -44,8 +44,14 @@ struct ContentView: View {
                     }
                     .animation(DKMotion.Spring.default, value: selectedTab)
                 } else {
-                    WelcomeView {
-                        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                    WelcomeView { name, repo, path in
+                        let manager = WorkspaceManager(modelContainer: modelContext.container)
+                        do {
+                            try manager.add(name: name, repoFullName: repo, localPath: path)
+                            // Auto-select is handled by onChange(of: workspaces.count)
+                        } catch {
+                            // Error handled inside WelcomeView form
+                        }
                     }
                 }
             }
@@ -60,6 +66,18 @@ struct ContentView: View {
             guard let ws = selectedWorkspace, let interval = newInterval else { return }
             monitor?.stopPolling()
             startPolling(workspace: ws, interval: TimeInterval(interval))
+        }
+        .onAppear {
+            // Auto-select first workspace if none selected
+            if selectedWorkspaceName == nil, let first = workspaces.first {
+                selectedWorkspaceName = first.name
+            }
+        }
+        .onChange(of: workspaces.count) { _, _ in
+            // When a workspace is added and none selected, auto-select it
+            if selectedWorkspaceName == nil, let first = workspaces.first {
+                selectedWorkspaceName = first.name
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .refreshIssues)) { _ in
             guard let ws = selectedWorkspace else { return }
