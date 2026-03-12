@@ -27,7 +27,7 @@ final class AgentWorker: Identifiable {
         let env = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
         terminal.startProcess(
             executable: "/bin/zsh",
-            args: ["-l", "-c", "cd \(shellescape(workspacePath)) && claude --session-id \(session.id.uuidString) \(shellescape(prompt))"],
+            args: ["-l", "-c", "cd \(shellescape(workspacePath)) && claude --session-id \(shellescape(session.id.uuidString)) \(shellescape(prompt))"],
             environment: env,
             execName: "zsh"
         )

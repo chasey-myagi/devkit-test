@@ -64,8 +64,12 @@ final class AgentCoordinator {
         context.insert(session)
         try? context.save()
 
-        // Configure workspace
-        try? configurator.ensureHookConfig(at: workspace.localPath)
+        // Configure workspace hooks
+        do {
+            try configurator.ensureHookConfig(at: workspace.localPath)
+        } catch {
+            logger.error("Failed to write hook config at \(workspace.localPath): \(error). Agent events may not be received.")
+        }
 
         dispatch(workspace: workspace)
     }
@@ -120,8 +124,13 @@ final class AgentCoordinator {
 
         switch event.type {
         case .stop:
-            handleStopEvent(session: session, context: context)
+            handleStopEvent(session: session)
+            // Release worker only on stop — process has exited
+            if let worker = workers.first(where: { $0.currentSession?.id == session.id }) {
+                worker.release()
+            }
         case .notification:
+            // Keep worker alive so user can interact via terminal
             session.status = .needsIntervention
             try? context.save()
             NotificationService.shared.sendAgentNeedsInterventionNotification(
@@ -129,42 +138,41 @@ final class AgentCoordinator {
                 issueTitle: session.issueTitle
             )
         }
-
-        // Release worker
-        if let worker = workers.first(where: { $0.currentSession?.id == session.id }) {
-            worker.release()
-        }
     }
 
-    private func handleStopEvent(session: AgentSession, context: ModelContext) {
-        // Check if a PR was created linking this issue
-        Task {
-            let wsName = session.workspaceName
-            guard let container = modelContainer else { return }
+    private func handleStopEvent(session: AgentSession) {
+        // Capture values before entering Task to avoid cross-actor issues
+        let wsName = session.workspaceName
+        let issueNumber = session.issueNumber
+        let issueTitle = session.issueTitle
+
+        Task { @MainActor [weak self] in
+            guard let self, let container = modelContainer else { return }
+            let context = container.mainContext
+
             let wsDescriptor = FetchDescriptor<Workspace>(
                 predicate: #Predicate { $0.name == wsName }
             )
-            guard let workspace = try? container.mainContext.fetch(wsDescriptor).first else { return }
+            guard let workspace = try? context.fetch(wsDescriptor).first else { return }
 
             let prs = try? await ghClient.fetchAuthoredPRs(repo: workspace.repoFullName)
-            let issueNumber = session.issueNumber
             let linkedPR = prs?.first { $0.title.contains("#\(issueNumber)") || $0.body?.contains("Closes #\(issueNumber)") == true }
 
             if let linkedPR {
                 session.status = .completed
                 session.prNumber = linkedPR.number
-                try? container.mainContext.save()
+                try? context.save()
                 NotificationService.shared.sendAgentCompletedNotification(
-                    issueNumber: session.issueNumber,
-                    issueTitle: session.issueTitle,
+                    issueNumber: issueNumber,
+                    issueTitle: issueTitle,
                     prNumber: linkedPR.number
                 )
             } else {
                 session.status = .needsIntervention
-                try? container.mainContext.save()
+                try? context.save()
                 NotificationService.shared.sendAgentNeedsInterventionNotification(
-                    issueNumber: session.issueNumber,
-                    issueTitle: session.issueTitle
+                    issueNumber: issueNumber,
+                    issueTitle: issueTitle
                 )
             }
         }
