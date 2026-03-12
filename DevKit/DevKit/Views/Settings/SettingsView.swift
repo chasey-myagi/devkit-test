@@ -30,13 +30,19 @@ struct SettingsView: View {
     // MARK: - Workspace Settings
 
     private var workspaceSettings: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DKSpacing.md) {
             List {
                 ForEach(workspaces) { ws in
-                    VStack(alignment: .leading) {
-                        Text(ws.name).font(.headline)
-                        Text(ws.repoFullName).font(.caption).foregroundStyle(.secondary)
-                        Text(ws.localPath).font(.caption2).foregroundStyle(.tertiary)
+                    VStack(alignment: .leading, spacing: DKSpacing.xs) {
+                        Text(ws.name)
+                            .font(DKTypography.bodyMedium())
+                            .foregroundStyle(DKColor.Foreground.primary)
+                        Text(ws.repoFullName)
+                            .font(DKTypography.caption())
+                            .foregroundStyle(DKColor.Foreground.secondary)
+                        Text(ws.localPath)
+                            .font(DKTypography.captionSmall())
+                            .foregroundStyle(DKColor.Foreground.tertiary)
                     }
                 }
                 .onDelete { indexSet in
@@ -54,16 +60,19 @@ struct SettingsView: View {
             Button("Add Workspace...") {
                 showAddSheet = true
             }
+            .buttonStyle(DKPrimaryButtonStyle())
             .sheet(isPresented: $showAddSheet) {
                 addWorkspaceSheet
             }
         }
-        .padding()
+        .padding(DKSpacing.lg)
     }
 
     private var addWorkspaceSheet: some View {
-        VStack(spacing: 12) {
-            Text("Add Workspace").font(.headline)
+        VStack(spacing: DKSpacing.md) {
+            Text("Add Workspace")
+                .font(DKTypography.pageTitle())
+                .foregroundStyle(DKColor.Foreground.primary)
             TextField("Name", text: $newWorkspaceName)
             TextField("Repo (owner/name)", text: $newRepoFullName)
             HStack {
@@ -76,12 +85,13 @@ struct SettingsView: View {
                         newLocalPath = url.path
                     }
                 }
+                .buttonStyle(DKSecondaryButtonStyle())
             }
 
             if let addError {
                 Text(addError)
-                    .font(.caption)
-                    .foregroundStyle(.red)
+                    .font(DKTypography.caption())
+                    .foregroundStyle(DKColor.Accent.critical)
             }
 
             HStack {
@@ -89,6 +99,7 @@ struct SettingsView: View {
                     showAddSheet = false
                     addError = nil
                 }
+                .buttonStyle(DKGhostButtonStyle())
                 Spacer()
                 Button("Add") {
                     let manager = WorkspaceManager(modelContainer: modelContext.container)
@@ -107,20 +118,23 @@ struct SettingsView: View {
                         addError = error.localizedDescription
                     }
                 }
+                .buttonStyle(DKPrimaryButtonStyle())
                 .disabled(newWorkspaceName.isEmpty || newRepoFullName.isEmpty || newLocalPath.isEmpty)
             }
         }
-        .padding()
+        .padding(DKSpacing.xl)
         .frame(width: 400)
     }
 
     // MARK: - GitHub Settings
 
     private var githubSettings: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            GroupBox("GitHub CLI Status") {
+        VStack(alignment: .leading, spacing: DKSpacing.md) {
+            DKSectionHeader(title: "GitHub CLI Status", icon: "globe")
+            VStack(alignment: .leading, spacing: DKSpacing.md) {
                 Text(ghAuthStatus)
                     .font(.system(.body, design: .monospaced))
+                    .foregroundStyle(DKColor.Foreground.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Button("Refresh") {
@@ -132,9 +146,14 @@ struct SettingsView: View {
                         }
                     }
                 }
+                .buttonStyle(DKSecondaryButtonStyle())
             }
+            .padding(DKSpacing.lg)
+            .background(DKColor.Surface.card)
+            .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
+            .dkShadow(DKShadow.sm)
         }
-        .padding()
+        .padding(DKSpacing.lg)
         .task {
             do {
                 ghAuthStatus = try await ghClient.checkAuthStatus()
@@ -147,9 +166,10 @@ struct SettingsView: View {
     // MARK: - Agent Settings
 
     private var agentSettings: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DKSpacing.md) {
             if let ws = workspaces.first(where: { $0.isActive }) ?? workspaces.first {
-                GroupBox("Polling") {
+                DKSectionHeader(title: "Polling", icon: "clock")
+                VStack(spacing: DKSpacing.sm) {
                     Picker("Interval", selection: Binding(
                         get: { ws.pollingIntervalSeconds },
                         set: { ws.pollingIntervalSeconds = $0 }
@@ -160,20 +180,34 @@ struct SettingsView: View {
                         Text("60 min").tag(3600)
                     }
                 }
+                .padding(DKSpacing.lg)
+                .background(DKColor.Surface.card)
+                .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
+                .dkShadow(DKShadow.sm)
 
-                GroupBox("Concurrency") {
+                DKSectionHeader(title: "Concurrency", icon: "cpu")
+                VStack(spacing: DKSpacing.sm) {
                     Stepper("Max parallel agents: \(ws.maxConcurrency)",
                             value: Binding(
                                 get: { ws.maxConcurrency },
                                 set: { ws.maxConcurrency = $0 }
                             ),
                             in: 1...5)
+                        .font(DKTypography.body())
+                        .foregroundStyle(DKColor.Foreground.primary)
                 }
+                .padding(DKSpacing.lg)
+                .background(DKColor.Surface.card)
+                .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
+                .dkShadow(DKShadow.sm)
             } else {
-                ContentUnavailableView("No Workspace", systemImage: "folder",
-                    description: Text("Add a workspace first."))
+                DKEmptyStateView(
+                    icon: "folder",
+                    title: "No Workspace",
+                    subtitle: "Add a workspace first."
+                )
             }
         }
-        .padding()
+        .padding(DKSpacing.lg)
     }
 }

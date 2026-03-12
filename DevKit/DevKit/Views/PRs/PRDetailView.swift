@@ -7,92 +7,134 @@ struct PRDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: DKSpacing.xl) {
                 // Header
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: DKSpacing.xs) {
                     HStack {
                         Text("#\(pr.number)")
-                            .font(.title2)
-                            .foregroundStyle(.secondary)
+                            .font(DKTypography.pageTitle())
+                            .foregroundStyle(DKColor.Foreground.secondary)
                         columnBadge
                         if pr.isDraft {
                             draftBadge
                         }
                     }
                     Text(pr.title)
-                        .font(.title3)
-                        .fontWeight(.semibold)
+                        .dkTextStyle(.pageTitle)
+                        .foregroundStyle(DKColor.Foreground.primary)
                 }
 
                 Divider()
 
-                // Diff Stats
-                GroupBox("Diff Statistics") {
-                    HStack(spacing: 24) {
+                // Diff Statistics card
+                VStack(alignment: .leading, spacing: DKSpacing.sm) {
+                    DKSectionHeader(title: "Diff Statistics", icon: "chart.bar")
+                    HStack(spacing: DKSpacing.xl) {
                         Label("+\(pr.additions)", systemImage: "plus.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(DKColor.Accent.positive)
                         Label("-\(pr.deletions)", systemImage: "minus.circle.fill")
-                            .foregroundStyle(.red)
+                            .foregroundStyle(DKColor.Accent.critical)
                     }
-                    .font(.body)
+                    .font(DKTypography.body())
+                    .padding(DKSpacing.lg)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(DKColor.Surface.card)
+                    .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
+                    .dkShadow(DKShadow.sm)
                 }
 
-                // Status
-                GroupBox("Status") {
-                    LabeledContent("Review", value: reviewDisplayText)
-                    LabeledContent("CI Checks", value: checksDisplayText)
-                    LabeledContent("Board Column", value: pr.boardColumn)
-                    LabeledContent("Updated", value: pr.updatedAt.formatted())
+                // Status card
+                VStack(alignment: .leading, spacing: DKSpacing.sm) {
+                    DKSectionHeader(title: "Status", icon: "info.circle")
+                    VStack(spacing: DKSpacing.xs) {
+                        LabeledContent("Review", value: reviewDisplayText)
+                        LabeledContent("CI Checks", value: checksDisplayText)
+                        LabeledContent("Board Column", value: pr.boardColumn)
+                        LabeledContent("Updated", value: pr.updatedAt.formatted())
+                    }
+                    .font(DKTypography.body())
+                    .foregroundStyle(DKColor.Foreground.primary)
+                    .padding(DKSpacing.lg)
+                    .background(DKColor.Surface.card)
+                    .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
+                    .dkShadow(DKShadow.sm)
                 }
 
-                // Linked Issues
+                // Linked Issues card
                 if !pr.linkedIssueNumbers.isEmpty {
-                    GroupBox("Linked Issues") {
-                        ForEach(pr.linkedIssueNumbers, id: \.self) { issueNumber in
-                            HStack {
-                                Image(systemName: "link")
-                                Text("#\(issueNumber)")
-                                Spacer()
-                            }
-                        }
-                    }
-                }
-
-                // Comments
-                GroupBox("Review Comments (\(viewModel.comments.count))") {
-                    if viewModel.isLoadingComments {
-                        ProgressView()
-                    } else if viewModel.comments.isEmpty {
-                        Text("No comments")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(viewModel.comments) { comment in
-                            VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: DKSpacing.sm) {
+                        DKSectionHeader(title: "Linked Issues", icon: "link")
+                        VStack(spacing: DKSpacing.xs) {
+                            ForEach(pr.linkedIssueNumbers, id: \.self) { issueNumber in
                                 HStack {
-                                    Text(comment.author.login)
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
+                                    Image(systemName: "link")
+                                        .foregroundStyle(DKColor.Foreground.tertiary)
+                                    Text("#\(issueNumber)")
+                                        .font(DKTypography.body())
+                                        .foregroundStyle(DKColor.Foreground.primary)
                                     Spacer()
-                                    if let date = comment.createdDate {
-                                        Text(date, style: .relative)
-                                            .font(.caption2)
-                                            .foregroundStyle(.tertiary)
-                                    } else {
-                                        Text(comment.createdAt)
-                                            .font(.caption2)
-                                            .foregroundStyle(.tertiary)
-                                    }
                                 }
-                                Text(comment.body)
-                                    .font(.callout)
                             }
-                            .padding(.vertical, 4)
-                            Divider()
                         }
+                        .padding(DKSpacing.lg)
+                        .background(DKColor.Surface.card)
+                        .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
+                        .dkShadow(DKShadow.sm)
                     }
                 }
 
-                // Open in GitHub button
+                // Review Comments card
+                VStack(alignment: .leading, spacing: DKSpacing.sm) {
+                    DKSectionHeader(title: "Review Comments (\(viewModel.comments.count))", icon: "text.bubble")
+                    VStack(alignment: .leading, spacing: 0) {
+                        if viewModel.isLoadingComments {
+                            ProgressView()
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(DKSpacing.xl)
+                        } else if viewModel.comments.isEmpty {
+                            Text("No comments")
+                                .font(DKTypography.body())
+                                .foregroundStyle(DKColor.Foreground.secondary)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(DKSpacing.xl)
+                        } else {
+                            let lastID = viewModel.comments.last?.id
+                            ForEach(viewModel.comments) { comment in
+                                VStack(alignment: .leading, spacing: DKSpacing.xs) {
+                                    HStack {
+                                        Text(comment.author.login)
+                                            .font(DKTypography.caption())
+                                            .fontWeight(.semibold)
+                                            .foregroundStyle(DKColor.Foreground.primary)
+                                        Spacer()
+                                        if let date = comment.createdDate {
+                                            Text(date, style: .relative)
+                                                .font(DKTypography.captionSmall())
+                                                .foregroundStyle(DKColor.Foreground.tertiary)
+                                        } else {
+                                            Text(comment.createdAt)
+                                                .font(DKTypography.captionSmall())
+                                                .foregroundStyle(DKColor.Foreground.tertiary)
+                                        }
+                                    }
+                                    Text(comment.body)
+                                        .font(DKTypography.body())
+                                        .foregroundStyle(DKColor.Foreground.primary)
+                                }
+                                .padding(.vertical, DKSpacing.sm)
+                                if comment.id != lastID {
+                                    Divider()
+                                }
+                            }
+                        }
+                    }
+                    .padding(DKSpacing.lg)
+                    .background(DKColor.Surface.card)
+                    .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
+                    .dkShadow(DKShadow.sm)
+                }
+
+                // Open in GitHub
                 Button {
                     let urlString = "https://github.com/\(repoFullName)/pull/\(pr.number)"
                     if let url = URL(string: urlString) {
@@ -101,15 +143,16 @@ struct PRDetailView: View {
                 } label: {
                     Label("Open in GitHub", systemImage: "safari")
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(DKSecondaryButtonStyle())
 
                 Divider()
 
                 // Merge Section
                 mergeSection
             }
-            .padding()
+            .padding(DKSpacing.xl)
         }
+        .background(DKColor.Surface.primary)
         .navigationTitle("#\(pr.number)")
         .task {
             await viewModel.loadComments(repo: repoFullName, prNumber: pr.number)
@@ -121,20 +164,21 @@ struct PRDetailView: View {
 
     @ViewBuilder
     private var mergeSection: some View {
-        GroupBox("Merge") {
-            VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DKSpacing.sm) {
+            DKSectionHeader(title: "Merge", icon: "arrow.triangle.merge")
+            VStack(alignment: .leading, spacing: DKSpacing.md) {
                 // Merge success
                 if let successMsg = viewModel.mergeSuccessMessage {
                     Label(successMsg, systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                        .font(.callout)
+                        .foregroundStyle(DKColor.Accent.positive)
+                        .font(DKTypography.body())
                 }
 
                 // Merge error
                 if let errorMsg = viewModel.mergeError {
                     Label(errorMsg, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
-                        .font(.callout)
+                        .foregroundStyle(DKColor.Accent.critical)
+                        .font(DKTypography.body())
                 }
 
                 // Mergeability status
@@ -143,17 +187,17 @@ struct PRDetailView: View {
                         ProgressView()
                             .controlSize(.small)
                         Text("Checking mergeability...")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
+                            .font(DKTypography.body())
+                            .foregroundStyle(DKColor.Foreground.secondary)
                     }
                 } else if let m = viewModel.mergeability, !m.canMerge {
                     Label(m.reasonText, systemImage: "xmark.circle")
-                        .foregroundStyle(.orange)
-                        .font(.callout)
+                        .foregroundStyle(DKColor.Accent.warning)
+                        .font(DKTypography.body())
                 }
 
                 // Merge buttons
-                HStack(spacing: 12) {
+                HStack(spacing: DKSpacing.md) {
                     Button {
                         Task {
                             await viewModel.merge(repo: repoFullName, prNumber: pr.number, method: .squash)
@@ -166,7 +210,7 @@ struct PRDetailView: View {
                             Label("Squash & Merge", systemImage: "arrow.triangle.merge")
                         }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(DKPrimaryButtonStyle())
                     .disabled(!mergeButtonsEnabled)
 
                     Button {
@@ -176,7 +220,7 @@ struct PRDetailView: View {
                     } label: {
                         Label("Rebase & Merge", systemImage: "arrow.triangle.branch")
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(DKSecondaryButtonStyle())
                     .disabled(!mergeButtonsEnabled)
 
                     Spacer()
@@ -188,9 +232,13 @@ struct PRDetailView: View {
                     } label: {
                         Label("Refresh", systemImage: "arrow.clockwise")
                     }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(DKGhostButtonStyle())
                 }
             }
+            .padding(DKSpacing.lg)
+            .background(DKColor.Surface.card)
+            .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
+            .dkShadow(DKShadow.sm)
         }
     }
 
@@ -206,9 +254,9 @@ struct PRDetailView: View {
 
     private var columnBadge: some View {
         Text(pr.boardColumn)
-            .font(.caption)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
+            .font(DKTypography.caption())
+            .padding(.horizontal, DKSpacing.sm)
+            .padding(.vertical, DKSpacing.xxs)
             .background(columnColor.opacity(0.15))
             .foregroundStyle(columnColor)
             .clipShape(Capsule())
@@ -216,21 +264,21 @@ struct PRDetailView: View {
 
     private var draftBadge: some View {
         Text("Draft")
-            .font(.caption)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(.secondary.opacity(0.15))
-            .foregroundStyle(.secondary)
+            .font(DKTypography.caption())
+            .padding(.horizontal, DKSpacing.sm)
+            .padding(.vertical, DKSpacing.xxs)
+            .background(Color.secondary.opacity(0.15))
+            .foregroundStyle(Color.secondary)
             .clipShape(Capsule())
     }
 
     private var columnColor: Color {
         switch pr.boardColumn {
-        case "Draft": return .secondary
-        case "In Review": return .blue
-        case "Need Fix": return .orange
-        case "Ready": return .green
-        default: return .secondary
+        case "Draft": return Color.secondary
+        case "In Review": return DKColor.Accent.info
+        case "Need Fix": return DKColor.Accent.warning
+        case "Ready": return DKColor.Accent.positive
+        default: return Color.secondary
         }
     }
 
