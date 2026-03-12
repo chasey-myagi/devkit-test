@@ -8,143 +8,177 @@ struct IssueDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: DKSpacing.xl) {
                 // Header
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: DKSpacing.xs) {
                     HStack {
                         Text("#\(issue.number)")
-                            .font(.title2)
-                            .foregroundStyle(.secondary)
+                            .font(DKTypography.pageTitle())
+                            .foregroundStyle(DKColor.Foreground.secondary)
                         statusBadge
                     }
                     Text(issue.title)
-                        .font(.title3)
-                        .fontWeight(.semibold)
+                        .dkTextStyle(.pageTitle)
+                        .foregroundStyle(DKColor.Foreground.primary)
                 }
 
                 Divider()
 
                 // Labels
                 if !issue.labels.isEmpty {
-                    FlowLayout(spacing: 4) {
+                    FlowLayout(spacing: DKSpacing.xs) {
                         ForEach(issue.labels, id: \.self) { label in
                             Text(label)
-                                .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(.quaternary)
+                                .font(DKTypography.caption())
+                                .padding(.horizontal, DKSpacing.sm)
+                                .padding(.vertical, DKSpacing.xxs)
+                                .background(DKColor.Surface.tertiary)
                                 .clipShape(Capsule())
                         }
                     }
                 }
 
-                // Metadata
-                GroupBox("Details") {
-                    LabeledContent("Severity", value: issue.severity ?? "—")
-                    LabeledContent("Priority", value: issue.priority ?? "—")
-                    LabeledContent("Customer", value: issue.customer ?? "—")
-                    LabeledContent("Milestone", value: issue.milestone ?? "—")
-                    LabeledContent("Updated", value: issue.updatedAt.formatted())
+                // Metadata card
+                VStack(alignment: .leading, spacing: DKSpacing.sm) {
+                    DKSectionHeader(title: "Details", icon: "info.circle")
+                    VStack(spacing: DKSpacing.xs) {
+                        LabeledContent("Severity", value: issue.severity ?? "—")
+                        LabeledContent("Priority", value: issue.priority ?? "—")
+                        LabeledContent("Customer", value: issue.customer ?? "—")
+                        LabeledContent("Milestone", value: issue.milestone ?? "—")
+                        LabeledContent("Updated", value: issue.updatedAt.formatted())
+                    }
+                    .font(DKTypography.body())
+                    .foregroundStyle(DKColor.Foreground.primary)
+                    .padding(DKSpacing.lg)
+                    .background(DKColor.Surface.card)
+                    .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
+                    .dkShadow(DKShadow.sm)
                 }
 
-                // Attachments
+                // Attachments card
                 if !issue.attachmentURLs.isEmpty {
-                    GroupBox("Attachments (\(issue.attachmentURLs.count))") {
-                        // 下载状态指示
-                        attachmentStatusView
+                    VStack(alignment: .leading, spacing: DKSpacing.sm) {
+                        DKSectionHeader(title: "Attachments (\(issue.attachmentURLs.count))", icon: "paperclip")
+                        VStack(alignment: .leading, spacing: DKSpacing.sm) {
+                            attachmentStatusView
 
-                        ForEach(Array(issue.attachmentURLs.enumerated()), id: \.offset) { _, url in
-                            HStack {
-                                Image(systemName: "paperclip")
-                                Text(URL(string: url)?.lastPathComponent ?? url)
-                                    .lineLimit(1)
-                                Spacer()
-                            }
-                        }
-
-                        // downloaded 时显示本地路径
-                        if issue.attachmentStatus == "downloaded" {
-                            HStack {
-                                Image(systemName: "folder")
-                                    .foregroundStyle(.secondary)
-                                Text("\(localPath)/issues/\(issue.number)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                Spacer()
-                                Button("Open in Finder") {
-                                    NSWorkspace.shared.open(URL(fileURLWithPath: "\(localPath)/issues/\(issue.number)"))
+                            ForEach(Array(issue.attachmentURLs.enumerated()), id: \.offset) { _, url in
+                                HStack {
+                                    Image(systemName: "paperclip")
+                                        .foregroundStyle(DKColor.Foreground.tertiary)
+                                    Text(URL(string: url)?.lastPathComponent ?? url)
+                                        .font(DKTypography.body())
+                                        .foregroundStyle(DKColor.Foreground.primary)
+                                        .lineLimit(1)
+                                    Spacer()
                                 }
-                                .font(.caption)
                             }
-                        }
 
-                        HStack {
-                            if issue.attachmentStatus == "failed" {
-                                Button("Retry Download") {
-                                    Task {
-                                        await viewModel.downloadAttachments(
-                                            urls: issue.attachmentURLs,
-                                            to: "\(localPath)/issues/\(issue.number)"
-                                        )
-                                        issue.attachmentStatus = viewModel.downloadError == nil ? "downloaded" : "failed"
+                            if issue.attachmentStatus == "downloaded" {
+                                HStack {
+                                    Image(systemName: "folder")
+                                        .foregroundStyle(DKColor.Foreground.secondary)
+                                    Text("\(localPath)/issues/\(issue.number)")
+                                        .font(DKTypography.captionSmall())
+                                        .foregroundStyle(DKColor.Foreground.secondary)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Button("Open in Finder") {
+                                        NSWorkspace.shared.open(URL(fileURLWithPath: "\(localPath)/issues/\(issue.number)"))
+                                    }
+                                    .font(DKTypography.caption())
+                                }
+                            }
+
+                            HStack {
+                                if issue.attachmentStatus == "failed" {
+                                    Button("Retry Download") {
+                                        Task {
+                                            await viewModel.downloadAttachments(
+                                                urls: issue.attachmentURLs,
+                                                to: "\(localPath)/issues/\(issue.number)"
+                                            )
+                                            issue.attachmentStatus = viewModel.downloadError == nil ? "downloaded" : "failed"
+                                        }
+                                    }
+                                }
+                                if issue.attachmentStatus == "none" {
+                                    Button("Download All") {
+                                        Task {
+                                            issue.attachmentStatus = "downloading"
+                                            await viewModel.downloadAttachments(
+                                                urls: issue.attachmentURLs,
+                                                to: "\(localPath)/issues/\(issue.number)"
+                                            )
+                                            issue.attachmentStatus = viewModel.downloadError == nil ? "downloaded" : "failed"
+                                        }
                                     }
                                 }
                             }
-
-                            if issue.attachmentStatus == "none" {
-                                Button("Download All") {
-                                    Task {
-                                        issue.attachmentStatus = "downloading"
-                                        await viewModel.downloadAttachments(
-                                            urls: issue.attachmentURLs,
-                                            to: "\(localPath)/issues/\(issue.number)"
-                                        )
-                                        issue.attachmentStatus = viewModel.downloadError == nil ? "downloaded" : "failed"
-                                    }
-                                }
-                            }
+                            .disabled(viewModel.isDownloading)
                         }
-                        .disabled(viewModel.isDownloading)
+                        .padding(DKSpacing.lg)
+                        .background(DKColor.Surface.card)
+                        .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
+                        .dkShadow(DKShadow.sm)
                     }
                 }
 
-                // Comments
-                GroupBox("Comments (\(viewModel.comments.count))") {
-                    if viewModel.isLoadingComments {
-                        ProgressView()
-                    } else if viewModel.comments.isEmpty {
-                        Text("No comments")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(viewModel.comments) { comment in
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text(comment.author.login)
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                    Spacer()
-                                    if let date = comment.createdDate {
-                                        Text(date, style: .relative)
-                                            .font(.caption2)
-                                            .foregroundStyle(.tertiary)
-                                    } else {
-                                        Text(comment.createdAt)
-                                            .font(.caption2)
-                                            .foregroundStyle(.tertiary)
+                // Comments card
+                VStack(alignment: .leading, spacing: DKSpacing.sm) {
+                    DKSectionHeader(title: "Comments (\(viewModel.comments.count))", icon: "text.bubble")
+                    VStack(alignment: .leading, spacing: 0) {
+                        if viewModel.isLoadingComments {
+                            ProgressView()
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(DKSpacing.xl)
+                        } else if viewModel.comments.isEmpty {
+                            Text("No comments")
+                                .font(DKTypography.body())
+                                .foregroundStyle(DKColor.Foreground.secondary)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(DKSpacing.xl)
+                        } else {
+                            let lastID = viewModel.comments.last?.id
+                            ForEach(viewModel.comments) { comment in
+                                VStack(alignment: .leading, spacing: DKSpacing.xs) {
+                                    HStack {
+                                        Text(comment.author.login)
+                                            .font(DKTypography.caption())
+                                            .fontWeight(.semibold)
+                                            .foregroundStyle(DKColor.Foreground.primary)
+                                        Spacer()
+                                        if let date = comment.createdDate {
+                                            Text(date, style: .relative)
+                                                .font(DKTypography.captionSmall())
+                                                .foregroundStyle(DKColor.Foreground.tertiary)
+                                        } else {
+                                            Text(comment.createdAt)
+                                                .font(DKTypography.captionSmall())
+                                                .foregroundStyle(DKColor.Foreground.tertiary)
+                                        }
                                     }
+                                    Text(comment.body)
+                                        .font(DKTypography.body())
+                                        .foregroundStyle(DKColor.Foreground.primary)
                                 }
-                                Text(comment.body)
-                                    .font(.callout)
+                                .padding(.vertical, DKSpacing.sm)
+                                if comment.id != lastID {
+                                    Divider()
+                                }
                             }
-                            .padding(.vertical, 4)
-                            Divider()
                         }
                     }
+                    .padding(DKSpacing.lg)
+                    .background(DKColor.Surface.card)
+                    .clipShape(RoundedRectangle(cornerRadius: DKRadius.xl))
+                    .dkShadow(DKShadow.sm)
                 }
             }
-            .padding()
+            .padding(DKSpacing.xl)
         }
+        .background(DKColor.Surface.primary)
         .navigationTitle("#\(issue.number)")
         .task {
             await viewModel.loadComments(repo: repoFullName, issueNumber: issue.number)
@@ -155,28 +189,27 @@ struct IssueDetailView: View {
     private var attachmentStatusView: some View {
         switch issue.attachmentStatus {
         case "downloading":
-            HStack(spacing: 6) {
-                ProgressView()
-                    .controlSize(.small)
+            HStack(spacing: DKSpacing.sm) {
+                ProgressView().controlSize(.small)
                 Text("Downloading attachments...")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(DKTypography.caption())
+                    .foregroundStyle(DKColor.Foreground.secondary)
             }
         case "downloaded":
-            HStack(spacing: 6) {
+            HStack(spacing: DKSpacing.sm) {
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(DKColor.Accent.positive)
                 Text("All attachments downloaded")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(DKTypography.caption())
+                    .foregroundStyle(DKColor.Foreground.secondary)
             }
         case "failed":
-            HStack(spacing: 6) {
+            HStack(spacing: DKSpacing.sm) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(DKColor.Accent.critical)
                 Text("Some downloads failed")
-                    .font(.caption)
-                    .foregroundStyle(.red)
+                    .font(DKTypography.caption())
+                    .foregroundStyle(DKColor.Accent.critical)
             }
         default:
             EmptyView()
@@ -185,9 +218,9 @@ struct IssueDetailView: View {
 
     private var statusBadge: some View {
         Text(issue.projectStatus)
-            .font(.caption)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
+            .font(DKTypography.caption())
+            .padding(.horizontal, DKSpacing.sm)
+            .padding(.vertical, DKSpacing.xxs)
             .background(statusColor.opacity(0.15))
             .foregroundStyle(statusColor)
             .clipShape(Capsule())
@@ -195,14 +228,15 @@ struct IssueDetailView: View {
 
     private var statusColor: Color {
         switch issue.projectStatus {
-        case "In Progress": return .blue
-        case "Done": return .green
-        default: return .secondary
+        case "In Progress": DKColor.Accent.info
+        case "Done": DKColor.Accent.positive
+        default: Color.secondary
         }
     }
 }
 
-// Simple flow layout for labels
+// MARK: - FlowLayout (preserved from original)
+
 struct FlowLayout: Layout {
     var spacing: CGFloat = 4
 
